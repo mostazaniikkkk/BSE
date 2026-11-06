@@ -1,0 +1,37 @@
+{
+	"required": true,
+	"package": "dev.soulsmode.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"mixins": [
+		"GiantMixin",
+		"FoodHealBlockMixin",
+		"HealBlockMixin",
+		"AbstractFurnaceBlockEntityMixin",
+		"BundleItemMixin",
+		"IronGolemMixin",
+		"PlayerMixin",
+		"ServerPlayerMixin",
+		"VillagerHostilesSensorMixin",
+		"VillagerMixin",
+		"WanderingTraderMixin",
+		"ZombieMixin",
+		"PillagerMixin",
+		"MobAttackMixin",
+		"MobReactionMixin",
+		"MobAccessor",
+		"TargetingConditionsMixin",
+		"TargetGoalMixin",
+		"DefendVillageTargetGoalMixin",
+		"ServerLevelEntitiesAccessor",
+		"AsceticLivingEntityMixin",
+		"AsceticSpawnerMixin",
+		"AsceticMonsterMixin",
+		"AsceticPhantomSpawnerMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}

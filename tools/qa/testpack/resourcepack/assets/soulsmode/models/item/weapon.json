@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/iron_sword",
+  "overrides": [
+    {"predicate": {"custom_model_data": 1}, "model": "bse_test:item/quick_blade"}
+  ]
+}

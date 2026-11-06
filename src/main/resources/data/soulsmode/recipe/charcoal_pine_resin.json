@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "R": {
+      "item": "soulsmode:solid_resin"
+    },
+    "M": {
+      "item": "minecraft:coal"
+    },
+    "B": {
+      "item": "minecraft:bundle"
+    }
+  },
+  "pattern": [
+    "R",
+    "M",
+    "B"
+  ],
+  "result": {
+    "count": 1,
+    "id": "soulsmode:charcoal_pine_resin"
+  }
+}

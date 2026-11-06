@@ -1,0 +1,10 @@
+{
+	"variants": {
+		"": [
+			{ "model": "soulsmode:block/bloodstain" },
+			{ "model": "soulsmode:block/bloodstain", "y": 90 },
+			{ "model": "soulsmode:block/bloodstain", "y": 180 },
+			{ "model": "soulsmode:block/bloodstain", "y": 270 }
+		]
+	}
+}

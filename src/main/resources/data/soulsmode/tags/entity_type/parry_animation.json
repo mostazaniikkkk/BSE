@@ -1,0 +1,12 @@
+{
+  "values": [
+    "minecraft:zombie",
+    "minecraft:husk",
+    "minecraft:drowned",
+    "minecraft:zombie_villager",
+    "minecraft:enderman",
+    "minecraft:wither_skeleton",
+    "minecraft:iron_golem",
+    "minecraft:vindicator"
+  ]
+}

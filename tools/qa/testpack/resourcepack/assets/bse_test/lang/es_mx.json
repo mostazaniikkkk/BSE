@@ -1,0 +1,12 @@
+{
+ "spell.bse_test.soul_arrow": "Flecha del alma (prueba)",
+ "spell.bse_test.fireball": "Bola de fuego (prueba)",
+ "spell.bse_test.lightning_spear": "Lanza de rayo (prueba)",
+ "spell.bse_test.heal": "Curar (prueba)",
+ "spell.bse_test.flash_sweat": "Sudor de llamas (prueba)",
+ "spell.bse_test.iron_flesh": "Carne de hierro (prueba)",
+ "spell.bse_test.magic_weapon": "Arma mágica (prueba)",
+ "spell.bse_test.triple_arrow": "Flecha triple (script de prueba)",
+ "enemy.bse_test.hollow_soldier": "Soldado hueco",
+ "enemy.bse_test.hollow_soldier_lua": "Soldado hueco (Lua)"
+}

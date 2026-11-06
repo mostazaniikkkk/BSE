@@ -1,0 +1,67 @@
+{
+ "format_version": "1.8.0",
+ "animations": {
+  "idle": {
+   "loop": true,
+   "animation_length": 1.0,
+   "bones": {}
+  },
+  "walk": {
+   "loop": true,
+   "animation_length": 1.0,
+   "bones": {}
+  },
+  "hurt": {
+   "animation_length": 1.0,
+   "bones": {}
+  },
+  "death": {
+   "animation_length": 5.333,
+   "bones": {}
+  },
+  "65131010": {
+   "animation_length": 3.0,
+   "bones": {}
+  },
+  "65141010": {
+   "animation_length": 2.667,
+   "bones": {}
+  },
+  "65151010": {
+   "animation_length": 4.333,
+   "bones": {}
+  },
+  "65161010": {
+   "animation_length": 4.667,
+   "bones": {}
+  },
+  "65171010": {
+   "animation_length": 4.333,
+   "bones": {}
+  },
+  "65111010": {
+   "animation_length": 2.167,
+   "bones": {}
+  },
+  "65111020": {
+   "animation_length": 2.167,
+   "bones": {}
+  },
+  "65111030": {
+   "animation_length": 2.667,
+   "bones": {}
+  },
+  "65121010": {
+   "animation_length": 2.333,
+   "bones": {}
+  },
+  "65121020": {
+   "animation_length": 2.333,
+   "bones": {}
+  },
+  "65121030": {
+   "animation_length": 3.0,
+   "bones": {}
+  }
+ }
+}

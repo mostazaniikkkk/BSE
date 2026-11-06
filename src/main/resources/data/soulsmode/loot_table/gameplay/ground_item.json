@@ -1,0 +1,55 @@
+{
+  "type": "minecraft:gift",
+  "pools": [
+    {
+      "rolls": 1,
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "soulsmode:soul_of_a_lost_undead",
+          "weight": 100
+        },
+        {
+          "type": "minecraft:item",
+          "name": "soulsmode:large_soul_of_a_lost_undead",
+          "weight": 100
+        },
+        {
+          "type": "minecraft:item",
+          "name": "soulsmode:soul_of_a_nameless_soldier",
+          "weight": 60
+        },
+        {
+          "type": "minecraft:item",
+          "name": "soulsmode:large_soul_of_a_nameless_soldier",
+          "weight": 60
+        },
+        {
+          "type": "minecraft:item",
+          "name": "soulsmode:charcoal_pine_resin",
+          "weight": 15
+        },
+        {
+          "type": "minecraft:item",
+          "name": "soulsmode:rotten_pine_resin",
+          "weight": 15
+        },
+        {
+          "type": "minecraft:item",
+          "name": "soulsmode:gold_pine_resin",
+          "weight": 15
+        },
+        {
+          "type": "minecraft:item",
+          "name": "soulsmode:dark_pine_resin",
+          "weight": 15
+        },
+        {
+          "type": "minecraft:item",
+          "name": "soulsmode:human_effigy",
+          "weight": 20
+        }
+      ]
+    }
+  ]
+}

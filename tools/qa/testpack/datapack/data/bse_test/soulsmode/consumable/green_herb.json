@@ -1,0 +1,9 @@
+{
+  "use": "effigy",
+  "items": ["minecraft:sweet_berries"],
+  "effects": [
+    {"type": "mob_effect", "id": "minecraft:regeneration", "duration": 100},
+    {"type": "function", "id": "bse_test:herb"}
+  ],
+  "weight": 0.3
+}

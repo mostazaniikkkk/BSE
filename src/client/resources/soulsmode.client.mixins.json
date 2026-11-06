@@ -1,0 +1,39 @@
+{
+	"required": true,
+	"package": "dev.soulsmode.client.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"client": [
+		"AbstractContainerScreenAccessor",
+		"CameraMixin",
+		"CreateWorldGameTabMixin",
+		"CreateWorldScreenMixin",
+		"EntityTurnMixin",
+		"GameRendererMixin",
+		"GuiMixin",
+		"InventoryScreenMixin",
+		"CraftingScreenMixin",
+		"AbstractFurnaceScreenMixin",
+		"EffectRenderingInventoryScreenMixin",
+		"ItemInHandLayerMixin",
+		"ItemInHandRendererMixin",
+		"LocalPlayerMixin",
+		"MinecraftMixin",
+		"RecipeBookComponentAccessor",
+		"SelectedGameModeAccessor",
+		"SelectedGameModeMixin",
+		"ZombieModelMixin",
+		"ZombieRendererMixin",
+		"SkeletonModelMixin",
+		"EndermanModelMixin",
+		"IronGolemModelMixin",
+		"IllagerModelMixin",
+		"ZombieVillagerModelMixin",
+		"PlayerModelMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}

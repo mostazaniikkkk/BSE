@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "R": {
+      "item": "soulsmode:solid_resin"
+    },
+    "M": {
+      "item": "minecraft:gold_nugget"
+    },
+    "B": {
+      "item": "minecraft:bundle"
+    }
+  },
+  "pattern": [
+    "R",
+    "M",
+    "B"
+  ],
+  "result": {
+    "count": 1,
+    "id": "soulsmode:gold_pine_resin"
+  }
+}

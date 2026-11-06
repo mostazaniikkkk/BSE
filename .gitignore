@@ -1,0 +1,74 @@
+# gradle
+
+.gradle/
+build/
+out/
+classes/
+
+# eclipse
+
+*.launch
+
+# idea
+
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# vscode
+
+.settings/
+.vscode/
+bin/
+.classpath
+.project
+
+# macos
+
+*.DS_Store
+
+# fabric
+
+run/
+
+# java
+
+hs_err_*.log
+replay_*.log
+*.hprof
+*.jfr
+
+# DS2-derived files: never in the repository; tools/ds2_build.py makes them from your own copy of DS2 (docs/build.md)
+tools/ds2_game.txt
+src/main/resources/data/soulsmode/ds2/
+src/main/resources/assets/soulsmode/player_animations/
+src/main/resources/assets/soulsmode/enemy_animations/
+src/main/resources/assets/soulsmode/sounds/ds2/
+src/main/resources/assets/soulsmode/sounds.json
+src/main/resources/assets/soulsmode/lang/
+src/main/resources/assets/soulsmode/textures/item/human_effigy.png
+src/main/resources/assets/soulsmode/textures/item/bonfire_ascetic.png
+src/main/resources/assets/soulsmode/textures/item/gold_pine_resin.png
+src/main/resources/assets/soulsmode/textures/item/charcoal_pine_resin.png
+src/main/resources/assets/soulsmode/textures/item/dark_pine_resin.png
+src/main/resources/assets/soulsmode/textures/item/rotten_pine_resin.png
+src/main/resources/assets/soulsmode/textures/item/soul_of_a_lost_undead.png
+src/main/resources/assets/soulsmode/textures/item/large_soul_of_a_lost_undead.png
+src/main/resources/assets/soulsmode/textures/item/soul_of_a_nameless_soldier.png
+src/main/resources/assets/soulsmode/textures/item/large_soul_of_a_nameless_soldier.png
+src/main/resources/assets/soulsmode/textures/item/lloyds_talisman.png
+src/main/resources/assets/soulsmode/textures/item/firebomb.png
+src/main/resources/assets/soulsmode/textures/item/soul_of_a_giant.png
+
+# local runs
+run/
+logs/
+
+# python
+__pycache__/
+*.pyc
+
+# QA test pack: content exported from DS2 data stays local
+tools/qa/testpack/datapack/data/bse_test/soulsmode/spell/
+tools/qa/testpack/datapack/data/bse_test/soulsmode/enemy/

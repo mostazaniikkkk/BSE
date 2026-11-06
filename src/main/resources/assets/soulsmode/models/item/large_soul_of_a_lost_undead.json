@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "soulsmode:item/large_soul_of_a_lost_undead"
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "extends": "soulsmode:battle_axe",
+  "items": ["minecraft:blaze_rod"],
+  "weight": 9.5
+}

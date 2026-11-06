@@ -1,0 +1,36 @@
+{
+	"schemaVersion": 1,
+	"id": "soulsmode",
+	"version": "${version}",
+	"name": "Souls Mode",
+	"description": "A new game mode with Dark Souls II-style player mechanics.",
+	"authors": [
+		"winnflow"
+	],
+	"license": "All-Rights-Reserved",
+	"icon": "assets/soulsmode/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"dev.soulsmode.SoulsMode"
+		],
+		"client": [
+			"dev.soulsmode.client.SoulsModeClient"
+		]
+	},
+	"mixins": [
+		"soulsmode.mixins.json",
+		{
+			"config": "soulsmode.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.20.1",
+		"minecraft": "~1.21.1",
+		"java": ">=21",
+		"fabric-api": "*",
+		"player_animation_library": "*",
+		"geckolib": "*"
+	}
+}
