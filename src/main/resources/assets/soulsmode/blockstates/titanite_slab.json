@@ -1,0 +1,13 @@
+{
+  "variants": {
+    "type=bottom": {
+      "model": "soulsmode:block/titanite_slab"
+    },
+    "type=top": {
+      "model": "soulsmode:block/titanite_slab_top"
+    },
+    "type=double": {
+      "model": "soulsmode:block/titanite_block"
+    }
+  }
+}

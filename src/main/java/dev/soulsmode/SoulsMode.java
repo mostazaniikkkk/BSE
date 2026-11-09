@@ -35,6 +35,8 @@ public class SoulsMode implements ModInitializer {
 						id("ground_item")));
 		dev.soulsmode.item.SoulsComponents.init();
 		dev.soulsmode.item.SoulsItems.init();
+		dev.soulsmode.item.ReinforceRecipe.init();
+		SoulsTitanite.init();
 		dev.soulsmode.entity.SoulsEntities.init();
 		dev.soulsmode.content.ContentReloader.init();
 		SoulsConsumables.init();
@@ -72,6 +74,7 @@ public class SoulsMode implements ModInitializer {
 		PayloadTypeRegistry.playS2C().register(AttackPayloads.Start.TYPE, AttackPayloads.Start.CODEC);
 		PayloadTypeRegistry.playS2C().register(AttackPayloads.Stop.TYPE, AttackPayloads.Stop.CODEC);
 		PayloadTypeRegistry.playS2C().register(AttackPayloads.GuardLayer.TYPE, AttackPayloads.GuardLayer.CODEC);
+		PayloadTypeRegistry.playS2C().register(AttackPayloads.Swing.TYPE, AttackPayloads.Swing.CODEC);
 		PayloadTypeRegistry.playC2S().register(AttackPayloads.Release.TYPE, AttackPayloads.Release.CODEC);
 		PayloadTypeRegistry.playC2S().register(dev.soulsmode.network.BowAimPayload.TYPE,
 				dev.soulsmode.network.BowAimPayload.CODEC);
@@ -104,6 +107,7 @@ public class SoulsMode implements ModInitializer {
 		PayloadTypeRegistry.playC2S().register(BonfirePayloads.Rest.TYPE, BonfirePayloads.Rest.CODEC);
 		PayloadTypeRegistry.playC2S().register(BonfirePayloads.Travel.TYPE, BonfirePayloads.Travel.CODEC);
 		PayloadTypeRegistry.playS2C().register(BonfirePayloads.ShotRequest.TYPE, BonfirePayloads.ShotRequest.CODEC);
+		PayloadTypeRegistry.playS2C().register(BonfirePayloads.Active.TYPE, BonfirePayloads.Active.CODEC);
 		PayloadTypeRegistry.playC2S().register(BonfirePayloads.Shot.TYPE, BonfirePayloads.Shot.CODEC);
 		PayloadTypeRegistry.playS2C().register(BonfirePayloads.Shot.TYPE, BonfirePayloads.Shot.CODEC);
 		PayloadTypeRegistry.playC2S().register(BonfirePayloads.ShotFetch.TYPE, BonfirePayloads.ShotFetch.CODEC);
@@ -185,6 +189,7 @@ public class SoulsMode implements ModInitializer {
 		});
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
 			SoulsWorld.onJoin(handler.getPlayer());
+			ServerPlayNetworking.send(handler.getPlayer(), ActiveBonfires.get(server).payload());
 			SoulsGameMode.updateBase(handler.getPlayer());
 			SoulsStats.apply(handler.getPlayer());
 		});
@@ -193,6 +198,7 @@ public class SoulsMode implements ModInitializer {
 		ServerTickEvents.END_SERVER_TICK.register(SoulsAttack::tick);
 		ServerTickEvents.END_SERVER_TICK.register(SoulsHitReaction::tick);
 		ServerTickEvents.END_SERVER_TICK.register(SoulsPoise::tick);
+		ServerTickEvents.END_SERVER_TICK.register(SoulsBleed::tick);
 		ServerTickEvents.END_SERVER_TICK.register(SoulsThrown::tick);
 		// Breaking an active bonfire: the giant comes (the user's design, SoulsGiants).
 		net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents.AFTER.register((world, player, pos, state, entity) -> {

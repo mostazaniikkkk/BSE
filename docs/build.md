@@ -44,6 +44,7 @@ Se puede correr uno solo con `--only <paso>` (o varios separados por coma).
 | `sounds` | Sonidos `.ogg`, `sounds.json`, `attack_sounds.json` | `sounds.py` |
 | `icons` | Texturas de los objetos, desde los íconos del menú | `icons.py` |
 | `lang` | Idiomas: los textos propios del mod (`src/main/lang/`) más los del juego | `lang.py` |
+| `blocks` | Textura del bloque de titanita, a partir del bloque de netherita de Minecraft (lee el jar del cliente que baja Fabric Loom, o `MINECRAFT_JAR`) | `titanite_block.py` |
 
 Las herramientas de formato de archivo (cifrado de los archivos, BND, DCX, FMG, TAE, NMB, FLVER) están en `tools/ds2/`.
 De dónde sale cada dato está explicado en el propio script y en `docs/research/`.

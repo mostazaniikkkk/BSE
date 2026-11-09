@@ -1,0 +1,14 @@
+{
+  "replace": false,
+  "values": [
+    "soulsmode:fire_infusion",
+    "soulsmode:magic_infusion",
+    "soulsmode:lightning_infusion",
+    "soulsmode:dark_infusion",
+    "soulsmode:poison_infusion",
+    "soulsmode:raw_infusion",
+    "soulsmode:enchanted_infusion",
+    "soulsmode:mundane_infusion",
+    "soulsmode:bleed_infusion"
+  ]
+}

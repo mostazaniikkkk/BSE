@@ -62,7 +62,8 @@ public final class Enemies {
 			float guardStability, float[] guardBlocked, float attackMultiplier, int souls, int rolls, List<Drop> drops,
 			List<Attack> attacks, float walkSpeed, float runSpeed, float width, float height, float followRange,
 			Map<String, String> animations, Map<String, Float> durations, String model, String texture,
-			String animationFile, net.minecraft.resources.ResourceLocation script, boolean boss, float[] turn) {
+			String animationFile, net.minecraft.resources.ResourceLocation script, boolean boss, float[] turn,
+			float bleedResistance) {
 		/**
 		 * The turn rate in degrees per tick outside attacks (FUN_1403a28b0): lerp(EnemyMoveParam +0x2c, +0x30) by
 		 * speed / +0x20, rad/s; {@code turn} = {+0x2c, +0x30, +0x20}. Null: Minecraft's mob turn.
@@ -158,7 +159,10 @@ public final class Enemies {
 				j.has("script") ? net.minecraft.resources.ResourceLocation.parse(j.get("script").getAsString()) : null,
 				j.has("boss") && j.get("boss").getAsBoolean(), j.has("turn") ? new float[] {
 						j.getAsJsonArray("turn").get(0).getAsFloat(), j.getAsJsonArray("turn").get(1).getAsFloat(),
-						j.getAsJsonArray("turn").get(2).getAsFloat()} : null);
+						j.getAsJsonArray("turn").get(2).getAsFloat()} : null,
+				// Bleed resistance (EnemyParam +0xb4 x 0.01, bleed.md section 2); 0.30, the most common in DS2, by
+				// default (the user's choice for creatures without DS2 data).
+				j.has("bleedResistance") ? j.get("bleedResistance").getAsFloat() : 0.30f);
 	}
 
 	/**

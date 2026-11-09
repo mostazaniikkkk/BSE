@@ -17,6 +17,16 @@ public abstract class VillagerMixin {
 	@Shadow
 	protected abstract void setUnhappy();
 
+	/** The smiths always sell their level's titanite (SoulsTitanite.smithOffer). */
+	@Inject(method = "updateTrades", at = @At("RETURN"))
+	private void soulsmode$titanite(org.spongepowered.asm.mixin.injection.callback.CallbackInfo ci) {
+		Villager self = (Villager) (Object) this;
+		var offer = dev.soulsmode.SoulsTitanite.smithOffer(self.getVillagerData());
+		if (offer != null) {
+			self.getOffers().add(offer);
+		}
+	}
+
 	@Inject(method = "mobInteract", at = @At("HEAD"), cancellable = true)
 	private void soulsmode$noTradeWhenHollow(Player player, InteractionHand hand, CallbackInfoReturnable<InteractionResult> cir) {
 		if (SoulsHollow.isHollow(player)) {

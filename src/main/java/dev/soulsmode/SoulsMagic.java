@@ -367,7 +367,7 @@ public final class SoulsMagic {
 	}
 
 	static Cast prepare(ServerPlayer player, ResourceLocation spellId, ResourceLocation catalyst, float slotCost,
-			boolean leftHand, boolean twoHanded, int upgradeLevel) {
+			boolean leftHand, boolean twoHanded, float upgradeLevel) {
 		Spells.Spell spell = SoulsContent.spell(spellId);
 		Spells.CastAnimation prepare = SoulsContent.castAnimation(spell.prepare());
 		Spells.CastAnimation cast = SoulsContent.castAnimation(spell.cast());

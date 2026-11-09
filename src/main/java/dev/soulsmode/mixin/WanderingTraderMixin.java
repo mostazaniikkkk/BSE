@@ -9,7 +9,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * Every wandering trader sells the Human Effigy (SoulsHollow), the Bonfire Ascetic (SoulsAscetic) and Lloyd's Talisman
- * (SoulsThrown), 2 emeralds each.
+ * (SoulsThrown), 2 emeralds each, and one twinkling titanite (SoulsTitanite, 30 emeralds).
  */
 @Mixin(WanderingTrader.class)
 public abstract class WanderingTraderMixin {
@@ -21,5 +21,6 @@ public abstract class WanderingTraderMixin {
 		}
 		((WanderingTrader) (Object) this).getOffers().add(dev.soulsmode.SoulsThrown.traderOffer());
 		((WanderingTrader) (Object) this).getOffers().add(dev.soulsmode.SoulsThrown.firebombOffer());
+		((WanderingTrader) (Object) this).getOffers().add(dev.soulsmode.SoulsTitanite.twinklingOffer());
 	}
 }

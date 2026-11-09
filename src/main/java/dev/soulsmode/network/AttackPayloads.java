@@ -109,6 +109,23 @@ public final class AttackPayloads {
 		}
 	}
 
+	/**
+	 * Server -> clients: the swing speed of the attack the player just started (dev.soulsmode.ds2.SwingSpeed): its clip
+	 * runs at {@code rate} inside the AttackSpeedControl 151 window. Sent after Start, only when the rate is not 1.
+	 */
+	public record Swing(int entityId, float rate) implements CustomPacketPayload {
+		public static final Type<Swing> TYPE = new Type<>(SoulsMode.id("attack_swing"));
+		public static final StreamCodec<RegistryFriendlyByteBuf, Swing> CODEC = StreamCodec.composite(
+				ByteBufCodecs.VAR_INT, Swing::entityId,
+				ByteBufCodecs.FLOAT, Swing::rate,
+				Swing::new);
+
+		@Override
+		public Type<? extends CustomPacketPayload> type() {
+			return TYPE;
+		}
+	}
+
 	/** Server -> clients: the player's grip ({@link dev.soulsmode.ds2.Moveset.Grip} ordinal) changed. */
 	public record GripState(int entityId, int grip) implements CustomPacketPayload {
 		public static final Type<GripState> TYPE = new Type<>(SoulsMode.id("grip_state"));

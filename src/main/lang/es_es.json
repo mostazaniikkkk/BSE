@@ -51,7 +51,7 @@
  "gui.soulsmode.travel.entry_dimension": "%s · %s",
  "message.soulsmode.bonfire.gone": "Esa hoguera ya no existe o está apagada",
  "gui.soulsmode.travel.no_picture": "Sin imagen",
- "message.soulsmode.bonfire.need_level": "Necesitas {0} nivel de experiencia para encender esta hoguera",
+ "message.soulsmode.bonfire.need_level": "Niveles de experiencia necesarios para encender esta hoguera: %s",
  "message.soulsmode.bonfire.activated": "La hoguera arde",
  "item.soulsmode.human_effigy.desc": "Anula estado de Hueco.",
  "gui.soulsmode.stats.load": "Carga",
@@ -102,5 +102,9 @@
  "gui.soulsmode.bonfire.burn_ascetic": "Quemar Llama de la adversidad",
  "gui.soulsmode.bonfire.rename": "Renombrar",
  "message.soulsmode.ascetic.burned": "Lo hecho, hecho está. (Ciclo %s)",
- "message.soulsmode.ascetic.busy": "Las llamas aún consumen otro lugar"
+ "message.soulsmode.ascetic.busy": "Las llamas aún consumen otro lugar",
+ "message.soulsmode.bonfire.need_sword": "Clava una espada de piedra en la fogata para encender la hoguera (clic derecho con ella en la mano)",
+ "block.soulsmode.titanite_block": "Bloque de titanita",
+ "gui.soulsmode.reinforce.cost": "Reforzar a +%s: %s niveles",
+ "gui.soulsmode.reinforce.cost_one": "Reforzar a +%s: %s nivel"
 }

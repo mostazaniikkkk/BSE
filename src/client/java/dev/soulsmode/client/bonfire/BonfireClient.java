@@ -28,7 +28,18 @@ public final class BonfireClient {
 	private BonfireClient() {
 	}
 
+	/** Active bonfires ("dimension|BlockPos.asLong", BonfirePayloads.Active): their campfire shows the planted sword. */
+	private static java.util.Set<String> active = java.util.Set.of();
+
+	public static boolean isActive(net.minecraft.world.level.Level level, net.minecraft.core.BlockPos pos) {
+		return active.contains(level.dimension().location() + "|" + pos.asLong());
+	}
+
 	public static void init() {
+		ClientPlayNetworking.registerGlobalReceiver(BonfirePayloads.Active.TYPE,
+				(payload, context) -> active = java.util.Set.copyOf(payload.keys()));
+		net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents.DISCONNECT.register(
+				(handler, client) -> active = java.util.Set.of());
 		ClientPlayNetworking.registerGlobalReceiver(BonfirePayloads.Open.TYPE, (payload, context) -> {
 			Minecraft client = context.client();
 			// After a confirmed level-up the level-up screen starts again from the new values, like FUN_1400c9f50.

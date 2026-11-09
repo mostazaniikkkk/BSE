@@ -54,6 +54,18 @@ public final class BonfirePayloads {
 	 * Server -> client: take this bonfire's picture now (the user's design, 2026-11-02: like DS2's travel menu, each
 	 * bonfire shows a picture of its place; the first player who uses it takes it).
 	 */
+	/** Server -> client: every active bonfire ("dimension|BlockPos.asLong"), for the sword in its model. */
+	public record Active(List<String> keys) implements CustomPacketPayload {
+		public static final Type<Active> TYPE = new Type<>(SoulsMode.id("bonfire_active"));
+		public static final StreamCodec<RegistryFriendlyByteBuf, Active> CODEC = StreamCodec.composite(
+				ByteBufCodecs.STRING_UTF8.apply(ByteBufCodecs.list()), Active::keys, Active::new);
+
+		@Override
+		public Type<? extends CustomPacketPayload> type() {
+			return TYPE;
+		}
+	}
+
 	public record ShotRequest(ResourceLocation dimension, BlockPos pos) implements CustomPacketPayload {
 		public static final Type<ShotRequest> TYPE = new Type<>(SoulsMode.id("bonfire_shot_request"));
 		public static final StreamCodec<RegistryFriendlyByteBuf, ShotRequest> CODEC = StreamCodec.composite(

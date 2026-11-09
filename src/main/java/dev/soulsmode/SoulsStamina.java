@@ -90,6 +90,10 @@ public final class SoulsStamina {
 			return;
 		}
 		float max = DerivedStats.compute(data.get().toAttributes(), Ds2Data.physicalStats()).maxStamina();
+		if (SoulsBleed.isBleeding(player)) {
+			// SpEffect 900210 (bleed.md section 4): max stamina x 0.75 for the 10 s bleed state.
+			max *= SoulsBleed.BLEEDING_STAMINA;
+		}
 		Stamina stamina = STAMINA.get(player.getUUID());
 		if (stamina == null) {
 			STAMINA.put(player.getUUID(), new Stamina(params(), curves(), max));

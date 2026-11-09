@@ -26,6 +26,7 @@ public class SoulsModeClient implements ClientModInitializer {
 		StaminaHud.init();
 		RollClient.init();
 		AttackClient.init();
+		dev.soulsmode.client.anim.SwingClient.init();
 		FlickInput.init();
 		InventoryStats.init();
 		PresenceClient.init();

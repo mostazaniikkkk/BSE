@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "###",
+    "###",
+    "###"
+  ],
+  "key": {
+    "#": {
+      "item": "soulsmode:titanite_chunk"
+    }
+  },
+  "result": {
+    "id": "soulsmode:titanite_slab",
+    "count": 1
+  }
+}

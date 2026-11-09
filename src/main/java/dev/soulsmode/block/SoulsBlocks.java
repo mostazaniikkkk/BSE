@@ -37,6 +37,26 @@ public final class SoulsBlocks {
 					.sound(SoundType.WOOL)
 					.pushReaction(PushReaction.DESTROY)));
 
+	/**
+	 * The titanite slab placed as a block (the user's design, 2026-11-09): a slab like Minecraft's, from the titanite
+	 * slab item (SoulsItems.TITANITE_SLAB). Looks like the titanite block. Mined with a pickaxe.
+	 */
+	public static final net.minecraft.world.level.block.SlabBlock TITANITE_SLAB = Registry.register(BuiltInRegistries.BLOCK,
+			SoulsMode.id("titanite_slab"), new net.minecraft.world.level.block.SlabBlock(titaniteProperties()));
+
+	/** The decorative titanite block: two slabs crafted together; looks like netherite, lighter and cracked. */
+	public static final net.minecraft.world.level.block.Block TITANITE_BLOCK = Registry.register(BuiltInRegistries.BLOCK,
+			SoulsMode.id("titanite_block"), new net.minecraft.world.level.block.Block(titaniteProperties()));
+
+	/** Iron-block-like properties: any pickaxe mines it (mineable/pickaxe, no tier tag). */
+	private static BlockBehaviour.Properties titaniteProperties() {
+		return BlockBehaviour.Properties.of()
+				.mapColor(MapColor.METAL)
+				.requiresCorrectToolForDrops()
+				.strength(5.0f, 6.0f)
+				.sound(SoundType.METAL);
+	}
+
 	private SoulsBlocks() {
 	}
 

@@ -69,11 +69,20 @@ Ejemplo, Dagger (categoría 1000), una mano:
   | Hachas | Battle Axe | 2010000 |
   | Picos | Pickaxe | 2610000 |
   | Mazo (mace) | Mace | 2410000 |
-  | Palo | Club | 2400000 |
+  | Palo | Club | 2400000 (×0.5 al ataque, ver abajo) |
+  | Azadas | Silverblack Sickle (Hoz platinegra) | 2100000 |
   | Tridente | Spear | 2800000 |
   | Mano vacía y otros | Fists | 3400000 |
 
   Otras armas, por API (`SoulsWeapons`).
+- **Reglas del usuario (2026-11-09), no DS2**:
+  - El palo es su propio tier: pega como el Club con el ataque ×0.5 (`SoulsUpgrade.materialFactor`, también en la página
+    de stats).
+  - Las azadas usan la Hoz platinegra (`docs/research/scythes.md`: tipo 151, movimientos de hacha). Pesan lo de su
+    receta mientras el usuario no decida si toman el peso DS2 (4).
+  - Las herramientas con moveset siguen cumpliendo su función (`SoulsTools`): con el hacha, click derecho sobre un
+    tronco / cobre lo descorteza, raspa o desencera; con la azada, ara la tierra, y el click izquierdo cosecha lo que
+    se rompe al instante (cultivos, flores, pasto).
 - **Slots por mano**: derecha a una mano = slots 0..3, izquierda = 40..43 (ligero, ligero de combo, fuerte, fuerte de
   combo). Que el 40 sea la mano izquierda lo respaldan los datos: en Fists (3400) y en la Scimitar (1600), el slot 42
   es el parry.

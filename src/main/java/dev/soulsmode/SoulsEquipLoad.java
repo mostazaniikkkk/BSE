@@ -179,7 +179,9 @@ public final class SoulsEquipLoad {
 		if (item == Items.STICK) {
 			return unit(WOOD);
 		}
-		if (ds2 > 0) {
+		// Hoes keep their recipe weight (below) while the user decides whether the Silverblack Sickle's DS2 weight
+		// applies (asked 2026-11-09).
+		if (ds2 > 0 && !(item instanceof net.minecraft.world.item.HoeItem)) {
 			return item instanceof TieredItem tiered ? tiered(tiered.getTier(), ds2) : ds2;
 		}
 		if (item instanceof TieredItem tiered) {

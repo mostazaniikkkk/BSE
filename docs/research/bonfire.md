@@ -18,6 +18,9 @@ Fuentes: Ghidra (`DarkSoulsII.exe`), `SpEffectWideUse.emevd` / `SpEffectMustSub.
 - `chr+0xd8` bit 0 = 1 (se limpia al salir) y `FUN_140423050(DAT_1416148f0+0x28, 1)` (contador +1; uso sin identificar).
 - `FUN_140198680(…, idHoguera)` → `FUN_140199e40(…, 10)` (modo 10 de un objeto de `+0x22e0`; sin identificar).
 
+> **Regla del usuario (2026-11-09): descansar en la hoguera no repara la armadura ni las armas** (rompe la reparación
+> de Minecraft): `100110[02]` no se aplica. Sí se aplican los usos de hechizos y quitar veneno / fuego.
+
 ## SpEffect 110000010 (`SpEffectWideUse.emevd`)
 Los comandos se resuelven con la tabla `{banco, id, handler}` en `0x1415711e0` y los grupos del gestor de SpEffect
 (ctor `FUN_1402317f0`). Los bancos `100050[01]` / `100070[00]` (`FUN_14022a730` / `FUN_1402295a0`) solo llaman al
@@ -122,6 +125,12 @@ evento indicado en `SpEffectMustSub.emevd`.
   creativo no cuesta). Activada, sirve para todos los jugadores (`ActiveBonfires`, guardado en el mundo).
 - Si el bloque de la fogata desaparece, la activación se pierde; apagarla y volver a encenderla la conserva.
 - Viajar a una hoguera no activada no funciona (se quita de la lista como una apagada).
+- **Costo creciente (usuario, 2026-11-08)**: cada hoguera que un jugador enciende le cuesta un nivel más que la anterior
+  (1, 2, 3…; contador por jugador `soulsmode:bonfires_kindled`, se conserva al morir). Usar una hoguera ya activa sigue
+  siendo gratis.
+- **Partículas (usuario, 2026-11-08)**: las hogueras activas a menos de 48 bloques de un jugador sueltan chispas
+  (`end_rod`) cada medio segundo, para distinguirlas de una fogata a simple vista. Partícula y radio: elección de
+  implementación.
 
 ## Imagen de cada hoguera en el menú de viaje (diseño del usuario, 2026-11-02, a la manera del menú de viaje de DS2)
 - El primer jugador que activa una hoguera (o descansa en una que aún no tiene imagen) saca una captura: el siguiente

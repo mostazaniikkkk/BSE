@@ -66,7 +66,8 @@ public final class Weapons {
 
 	public static Def parse(JsonObject w, JsonObject animations) {
 		return new Def(moveset(w, animations), new GripData(w.get("twoHandStance").getAsInt(), w.get("storage").getAsInt()),
-				new GuardData(rates(w.getAsJsonArray("guardStability")), rates(w.getAsJsonArray("guardStaminaRates"))),
+				new GuardData(rates(w.getAsJsonArray("guardStability")), rates(w.getAsJsonArray("guardStaminaRates")),
+						w.has("guardStabilityByLevel") ? rates(w.getAsJsonArray("guardStabilityByLevel")) : null),
 				w.get("weight").getAsFloat(), Ds2Damage.parseWeapon(w.getAsJsonObject("attack")),
 				critical(w, "riposte", animations), critical(w, "guard_break", animations),
 				victim(w, "backstab", animations), victim(w, "riposte", animations), victim(w, "guard_break", animations),
@@ -352,12 +353,14 @@ public final class Weapons {
 				inv.add(pair(h.getAsJsonArray()));
 			}
 			float duration = a.get("duration").getAsFloat();
-			return Attack.critical(animation, taeId, duration, hits, inv,
+			Attack critical = Attack.critical(animation, taeId, duration, hits, inv,
 					a.get("leftAuthored").getAsBoolean(), s.get("staminaCost").getAsFloat(), charges(hits),
 					windows(a.getAsJsonArray("regenBlock")),
 					a.has("avoidLock") ? pair(a.getAsJsonArray("avoidLock"))[1] : duration,
 					a.has("moveLock") ? a.get("moveLock").getAsFloat() : duration,
 					a.has("attackLock") ? a.get("attackLock").getAsFloat() : duration);
+			SwingSpeed.register(critical, s, a);
+			return critical;
 		}
 		if (a.has("guard")) {
 			return Attack.guard(animation, taeId, a.get("duration").getAsFloat(), a.get("leftAuthored").getAsBoolean());
@@ -371,6 +374,7 @@ public final class Weapons {
 				a.get("leftAuthored").getAsBoolean(), List.of(), windows(a.getAsJsonArray("parry")),
 				s.get("staminaCost").getAsFloat(), charges(hits), windows(a.getAsJsonArray("regenBlock")));
 		HitBack.register(attack, s);
+		SwingSpeed.register(attack, s, a);
 		return attack;
 	}
 
@@ -461,7 +465,23 @@ public final class Weapons {
 	 * +0x74 + WeaponTypeParam +0xd0 / +0xd4, level 0) and, as attacker, the stamina damage rate right / left hand
 	 * (WeaponParam +0x84 x WeaponTypeParam +0x64 / +0x58).
 	 */
-	public record GuardData(float[] stability, float[] staminaRates) {
+	/**
+	 * Guard data: stability one-handed / two-handed at +0, stamina rates, and the reinforcement part of the stability
+	 * per DS2 level (WRP +0x74 + 4 x level; null when not exported).
+	 */
+	public record GuardData(float[] stability, float[] staminaRates, float[] stabilityByLevel) {
+		/** The stability of a grip at a DS2 level (fractional levels interpolate; the mod's tiers rescale them). */
+		public float stability(int grip, float level) {
+			float base = stability[grip];
+			if (stabilityByLevel == null || stabilityByLevel.length == 0 || level <= 0) {
+				return base;
+			}
+			float l = Math.min(level, stabilityByLevel.length - 1);
+			int lo = (int) Math.floor(l);
+			int hi = Math.min(lo + 1, stabilityByLevel.length - 1);
+			float at = stabilityByLevel[lo] + (stabilityByLevel[hi] - stabilityByLevel[lo]) * (l - lo);
+			return base + at - stabilityByLevel[0];
+		}
 	}
 
 	public static Map<String, GuardData> guards() {
@@ -471,7 +491,8 @@ public final class Weapons {
 					.getAsJsonObject().getAsJsonObject("weapons").entrySet()) {
 				JsonObject w = e.getValue().getAsJsonObject();
 				out.put(e.getKey(), new GuardData(rates(w.getAsJsonArray("guardStability")),
-						rates(w.getAsJsonArray("guardStaminaRates"))));
+						rates(w.getAsJsonArray("guardStaminaRates")),
+						w.has("guardStabilityByLevel") ? rates(w.getAsJsonArray("guardStabilityByLevel")) : null));
 			}
 			return out;
 		} catch (IOException e) {

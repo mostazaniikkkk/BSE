@@ -630,6 +630,11 @@ public final class SoulsPerception {
 
 		@Override
 		public void tick() {
+			// The RETURN step ends by clearing step; with requiresUpdateEveryTick the goal is ticked again before the
+			// selector asks canContinueToUse (crash 2026-11-08 on QA Server SAM): nothing left to do.
+			if (step == null) {
+				return;
+			}
 			long t = now() - stepStart;
 			switch (step) {
 				case WALK -> {

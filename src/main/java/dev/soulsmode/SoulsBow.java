@@ -244,7 +244,8 @@ public final class SoulsBow {
 		ItemStack held = shot.weaponLeft ? player.getOffhandItem() : player.getMainHandItem();
 		var stats = SoulsPlayer.data(player).map(SoulsData::toAttributes).orElse(null);
 		float[] attack = stats == null ? new float[6] : dev.soulsmode.ds2.Ds2Damage.attackRating(shot.weapon.weapon,
-				SoulsAttack.upgradeLevel(held), stats, shot.twoHanded, shot.weaponLeft, -1);
+				SoulsAttack.upgradeLevel(held), SoulsUpgrade.infusion(held), stats, shot.twoHanded, shot.weaponLeft, -1, 0,
+				null, null);
 		// Model space (left, up, forward) to the world along the body's facing.
 		float[] o = shot.data.origin(shot.weaponLeft);
 		double yaw = Math.toRadians(player.getYRot());

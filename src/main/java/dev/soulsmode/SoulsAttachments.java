@@ -38,6 +38,11 @@ public final class SoulsAttachments {
 			SoulsMode.id("hollowing"),
 			builder -> builder.persistent(Codec.INT).copyOnDeath());
 
+	/** Bonfires this player has kindled (SoulsBonfire: each one costs one more experience level than the last). */
+	public static final AttachmentType<Integer> BONFIRES_KINDLED = AttachmentRegistry.create(
+			SoulsMode.id("bonfires_kindled"),
+			builder -> builder.persistent(Codec.INT).copyOnDeath());
+
 	/** The player has already joined this Souls-like world once (SoulsWorld). */
 	public static final AttachmentType<Boolean> SOULS_LIKE_JOINED = AttachmentRegistry.create(
 			SoulsMode.id("souls_like_joined"),

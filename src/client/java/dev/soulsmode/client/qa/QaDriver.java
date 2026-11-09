@@ -30,6 +30,46 @@ public final class QaDriver {
 	}
 
 	public static void init() {
+		if ("shot".equals(System.getProperty("soulsmode.qa"))) {
+			// A screenshot (qa_shot.png) 10 s after joining, then quit: the QA script places the player through RCON.
+			ClientTickEvents.END_CLIENT_TICK.register(mc -> {
+				if (mc.player == null) {
+					return;
+				}
+				if (mc.screen instanceof net.minecraft.client.gui.screens.PauseScreen) {
+					mc.setScreen(null);
+				}
+				mc.options.hideGui = true;
+				if (mc.player.tickCount == 200) {
+					net.minecraft.client.Screenshot.grab(mc.gameDirectory, "qa_shot.png", mc.getMainRenderTarget(),
+							message -> log("screenshot"));
+				}
+				if (mc.player.tickCount == 220) {
+					mc.stop();
+				}
+			});
+			return;
+		}
+		if ("hits".equals(System.getProperty("soulsmode.qa"))) {
+			ClientTickEvents.END_CLIENT_TICK.register(HitsQa::tick);
+			return;
+		}
+		if ("stick".equals(System.getProperty("soulsmode.qa"))) {
+			ClientTickEvents.END_CLIENT_TICK.register(StickQa::tick);
+			return;
+		}
+		if ("titanite".equals(System.getProperty("soulsmode.qa"))) {
+			ClientTickEvents.END_CLIENT_TICK.register(TitaniteQa::tick);
+			return;
+		}
+		if ("swing".equals(System.getProperty("soulsmode.qa"))) {
+			ClientTickEvents.END_CLIENT_TICK.register(QaDriver::swing);
+			return;
+		}
+		if ("tools".equals(System.getProperty("soulsmode.qa"))) {
+			ClientTickEvents.END_CLIENT_TICK.register(QaDriver::tools);
+			return;
+		}
 		if ("poise".equals(System.getProperty("soulsmode.qa"))) {
 			ClientTickEvents.END_CLIENT_TICK.register(QaDriver::poise);
 			return;
@@ -238,6 +278,126 @@ public final class QaDriver {
 		if (poiseTick >= 900) {
 			log("done");
 			mc.stop();
+		}
+	}
+
+	private static int swingPhase;
+	private static int swingTick = -1;
+	private static int swingStart;
+
+	/**
+	 * {@code -Dsoulsmode.qa=swing}: DS2's swing speed (SwingSpeed). The QA script (tools/qa/swing_setup.js) hands a weapon
+	 * whose requirements the Explorer meets (wooden sword: Broken Straight Sword 2/3) and one it does not (netherite
+	 * axe: Gyrm Axe 28/6); each is swung once with the real attack key and the rate and the real length are logged.
+	 */
+	private static void swing(Minecraft mc) {
+		if (mc.player == null || mc.level == null) {
+			return;
+		}
+		if (mc.screen instanceof net.minecraft.client.gui.screens.PauseScreen) {
+			mc.setScreen(null);
+		}
+		String[] needs = {"sword", "axe"};
+		net.minecraft.world.item.Item[] items = {Items.WOODEN_SWORD, Items.NETHERITE_AXE};
+		if (swingPhase >= needs.length) {
+			return;
+		}
+		if (swingTick < 0) {
+			if (!mc.player.getMainHandItem().is(items[swingPhase])) {
+				if (mc.player.tickCount % 40 == 0) {
+					log("NEED {}", needs[swingPhase]);
+				}
+				return;
+			}
+			swingTick = 0;
+		}
+		swingTick++;
+		mc.options.setCameraType(net.minecraft.client.CameraType.THIRD_PERSON_BACK);
+		switch (swingTick) {
+			case 40 -> click(mc.options.keyAttack, true);
+			case 42 -> click(mc.options.keyAttack, false);
+			default -> {
+			}
+		}
+		boolean attacking = dev.soulsmode.client.AttackClient.attacking();
+		if (swingTick > 40 && attacking && swingStart == 0) {
+			swingStart = swingTick;
+		}
+		if (swingTick == 50) {
+			log("{}: swing rate {}", needs[swingPhase], dev.soulsmode.client.anim.SwingClient.rate(mc.player.getId()));
+		}
+		if (swingStart > 0 && !attacking) {
+			log("{}: attack lasted {} ticks", needs[swingPhase], swingTick - swingStart);
+			swingStart = 0;
+			swingTick = -1;
+			swingPhase++;
+			if (swingPhase == needs.length) {
+				log("done");
+				mc.stop();
+			}
+		}
+	}
+
+	private static int toolsPhase;
+	private static int toolsTick = -1;
+
+	/**
+	 * {@code -Dsoulsmode.qa=tools}: tools with a DS2 moveset keep their job (SoulsTools). The QA script (tools/qa/
+	 * tools_setup.js) answers each NEED line through RCON; this aims at the block at 0 100 2 (or 0 99 2), presses the
+	 * real key and logs the block.
+	 */
+	private static void tools(Minecraft mc) {
+		if (mc.player == null || mc.level == null) {
+			return;
+		}
+		if (mc.screen instanceof net.minecraft.client.gui.screens.PauseScreen) {
+			mc.setScreen(null);
+		}
+		String[] needs = {"axe", "hoe", "wheat", "sword"};
+		net.minecraft.world.item.Item[] items = {Items.IRON_AXE, Items.IRON_HOE, Items.IRON_HOE, Items.IRON_SWORD};
+		if (toolsPhase >= needs.length) {
+			return;
+		}
+		net.minecraft.core.BlockPos pos = new net.minecraft.core.BlockPos(0, toolsPhase == 1 ? 99 : 100, 2);
+		if (toolsTick < 0) {
+			if (!mc.player.getMainHandItem().is(items[toolsPhase])
+					|| toolsPhase == 2 && !mc.level.getBlockState(pos).is(net.minecraft.world.level.block.Blocks.WHEAT)) {
+				if (mc.player.tickCount % 40 == 0) {
+					log("NEED {}", needs[toolsPhase]);
+				}
+				return;
+			}
+			toolsTick = 0;
+		}
+		toolsTick++;
+		// The log's centre; the top of the grass block; the wheat; the sword aims at a log again.
+		net.minecraft.world.phys.Vec3 target = toolsPhase == 1 ? new net.minecraft.world.phys.Vec3(0.5, 100.0, 2.5)
+				: pos.getCenter();
+		mc.options.setCameraType(net.minecraft.client.CameraType.FIRST_PERSON);
+		mc.player.lookAt(net.minecraft.commands.arguments.EntityAnchorArgument.Anchor.EYES, target);
+		boolean attack = toolsPhase == 2;
+		KeyMapping key = attack ? mc.options.keyAttack : mc.options.keyUse;
+		switch (toolsTick) {
+			case 20 -> log("{}: before {} hit {}", needs[toolsPhase], mc.level.getBlockState(pos),
+					mc.hitResult instanceof net.minecraft.world.phys.BlockHitResult b ? b.getBlockPos() : mc.hitResult);
+			case 25 -> click(key, true);
+			case 27 -> {
+				if (!attack) {
+					click(key, false);
+				}
+			}
+			case 40 -> click(key, false);
+			case 60 -> {
+				log("{}: after {}", needs[toolsPhase], mc.level.getBlockState(pos));
+				toolsPhase++;
+				toolsTick = -1;
+				if (toolsPhase == needs.length) {
+					log("done");
+					mc.stop();
+				}
+			}
+			default -> {
+			}
 		}
 	}
 

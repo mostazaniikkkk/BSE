@@ -27,7 +27,7 @@ import java.util.function.Function;
  * <p>
  * Like DS2, the moveset belongs to each weapon (WeaponParam -> WeaponActionCategoryParam, docs/research/weapons.md).
  * Built in, as {@code soulsmode:<name>} ({@link #BUILT_IN}): swords → {@code longsword} (DS2 Longsword), axes →
- * {@code battle_axe}, pickaxes → {@code pickaxe}, mace → {@code mace}, trident → {@code spear}; anything else →
+ * {@code battle_axe}, pickaxes → {@code pickaxe}, hoes → {@code silverblack_sickle}, mace → {@code mace}, trident → {@code spear}; anything else →
  * {@code fists}. Mods can point their items at any registered weapon, or register their own:
  * <pre>{@code
  * SoulsWeapons.assign(MyItems.KATANA, ResourceLocation.fromNamespaceAndPath("mymod", "katana"));
@@ -70,6 +70,9 @@ public final class SoulsWeapons {
 		assign(ItemTags.SWORDS, id("longsword"));
 		assign(ItemTags.AXES, id("battle_axe"));
 		assign(ItemTags.PICKAXES, id("pickaxe"));
+		// Hoes: DS2's Silverblack Sickle (the user's choice, 2026-11-09; docs/research/scythes.md). They still till
+		// (SoulsTools).
+		assign(ItemTags.HOES, id("silverblack_sickle"));
 		assign(Items.MACE, id("mace"));
 		assign(Items.STICK, id("club"));
 		assign(Items.TRIDENT, id("spear"));

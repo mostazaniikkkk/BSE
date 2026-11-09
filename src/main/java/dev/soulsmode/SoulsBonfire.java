@@ -13,8 +13,6 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
-import net.minecraft.world.effect.MobEffects;
-import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.ShovelItem;
@@ -102,8 +100,11 @@ public final class SoulsBonfire {
 	}
 
 	/**
-	 * The user's rule (2026-11-02): a campfire is only a bonfire once a player spends one experience level on it; then
-	 * it works for everyone (ActiveBonfires). The first use activates it (or says a level is needed); later uses rest.
+	 * The user's rules: a campfire is only a bonfire once a player spends experience levels on it (2026-11-02); then it
+	 * works for everyone (ActiveBonfires) and resting at it is free. Each bonfire a player kindles costs one more level
+	 * than the last one they kindled (2026-11-08): 1, 2, 3... Kindling takes a stone sword in the main hand, which stays
+	 * planted in the bonfire (2026-11-09: it is consumed and drawn in the fire, BonfireSwordRenderer). The first use
+	 * activates it (or says what is missing); later uses rest.
 	 */
 	private static void use(ServerPlayer player, BlockPos pos) {
 		ActiveBonfires active = ActiveBonfires.get(player.server);
@@ -113,13 +114,20 @@ public final class SoulsBonfire {
 			BonfireShots.requestIfMissing(player, dimension, pos);
 			return;
 		}
-		if (player.experienceLevel < ACTIVATION_LEVELS && !player.getAbilities().instabuild) {
-			player.displayClientMessage(Component.translatable("message.soulsmode.bonfire.need_level", ACTIVATION_LEVELS),
-					true);
+		if (!player.getMainHandItem().is(net.minecraft.world.item.Items.STONE_SWORD)) {
+			player.displayClientMessage(Component.translatable("message.soulsmode.bonfire.need_sword"), true);
+			return;
+		}
+		int kindled = player.getAttachedOrElse(SoulsAttachments.BONFIRES_KINDLED, 0);
+		int cost = activationCost(kindled);
+		if (player.experienceLevel < cost && !player.getAbilities().instabuild) {
+			player.displayClientMessage(Component.translatable("message.soulsmode.bonfire.need_level", cost), true);
 			return;
 		}
 		if (!player.getAbilities().instabuild) {
-			player.giveExperienceLevels(-ACTIVATION_LEVELS);
+			player.giveExperienceLevels(-cost);
+			player.setAttached(SoulsAttachments.BONFIRES_KINDLED, kindled + 1);
+			player.getMainHandItem().shrink(1);
 		}
 		active.activate(dimension, pos.immutable());
 		BonfireShots.requestIfMissing(player, dimension, pos);
@@ -128,8 +136,34 @@ public final class SoulsBonfire {
 		player.displayClientMessage(Component.translatable("message.soulsmode.bonfire.activated"), true);
 	}
 
-	/** The user's rule: experience levels a campfire costs to become a bonfire. */
+	/** The user's rule: levels the first bonfire costs; each later one costs this many more. */
 	public static final int ACTIVATION_LEVELS = 1;
+
+	/** Levels the next bonfire costs a player who has kindled {@code kindled} before. */
+	public static int activationCost(int kindled) {
+		return ACTIVATION_LEVELS * (kindled + 1);
+	}
+
+	/** Design choice (the user asked for particles, 2026-11-08): radius around players where active bonfires show them. */
+	private static final double PARTICLE_RANGE = 48;
+
+	/** Every half second: active bonfires near a player give off rising sparks, so they stand out from campfires. */
+	private static void bonfireParticles(MinecraftServer server) {
+		ActiveBonfires active = ActiveBonfires.get(server);
+		for (net.minecraft.server.level.ServerLevel level : server.getAllLevels()) {
+			if (level.players().isEmpty()) {
+				continue;
+			}
+			for (BlockPos pos : active.positions(level.dimension().location())) {
+				if (!level.isLoaded(pos) || level.getNearestPlayer(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5,
+						PARTICLE_RANGE, false) == null) {
+					continue;
+				}
+				level.sendParticles(net.minecraft.core.particles.ParticleTypes.END_ROD, pos.getX() + 0.5, pos.getY() + 0.8,
+						pos.getZ() + 0.5, 2, 0.2, 0.3, 0.2, 0.01);
+			}
+		}
+	}
 
 	public static InteractionResult onUseBlock(ServerPlayer player, InteractionHand hand, BlockHitResult hit) {
 		if (!SoulsGameMode.isActive(player) || !isBonfireUse(player, player.level(), hand, hit)) {
@@ -157,24 +191,21 @@ public final class SoulsBonfire {
 	}
 
 	/**
-	 * The confirmed parts of SpEffect 110000010 (docs/research/bonfire.md) that have a Minecraft counterpart:
+	 * The confirmed parts of SpEffect 110000010 (docs/research/bonfire.md) that have a Minecraft counterpart, except
+	 * durability: the user's rule is that resting never repairs armour or weapons (it breaks Minecraft's own repair).
 	 * <ul>
-	 * <li>100110[02] (FUN_140230d70): every equipped item that is not broken gets its full durability back;</li>
-	 * <li>event 871: abnormal states 0..11 are cleared; of those, poison and burn exist in Minecraft.</li>
+	 * <li>event 871: abnormal states 0..11 are cleared; of those, poison and burn exist in Minecraft;</li>
+	 * <li>100060[00] (100.0, 1): every spell's uses.</li>
 	 * </ul>
-	 * Not ported: the HP heal (101050, the healed amount comes from a field not yet confirmed as max HP) and the Estus refill (no flask yet, and its code was not found).
+	 * Not ported: 100110[02] (durability, the user's rule), the HP heal (101050) and the Estus refill (no DS2 healing).
 	 */
 	private static void restore(ServerPlayer player) {
-		for (EquipmentSlot slot : EquipmentSlot.values()) {
-			ItemStack stack = player.getItemBySlot(slot);
-			if (stack.isDamageableItem()) {
-				stack.setDamageValue(0);
-			}
-		}
-		player.removeEffect(MobEffects.POISON);
+		player.removeEffect(net.minecraft.world.effect.MobEffects.POISON);
 		player.clearFire();
 		// 100060[00] (100.0, 1): every spell's uses (docs/research/spells.md "Recuperar").
 		SoulsMagic.restore(player, 100);
+		// 1000[01] (0..6, 3 s, x100): the status meters drain at once; the bleed one is the mod's (SoulsBleed).
+		SoulsBleed.clear(player);
 	}
 
 	/** Adds the bonfire to the travel list the first time the player rests at it. */
@@ -253,6 +284,9 @@ public final class SoulsBonfire {
 
 	/** Opens the menu after the sit phase; ends the rest if the player dies, leaves Souls Mode, moves away or the fire goes out. */
 	public static void tick(MinecraftServer server) {
+		if (server.getTickCount() % 10 == 0) {
+			bonfireParticles(server);
+		}
 		RESTING.entrySet().removeIf(entry -> {
 			ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
 			if (player == null) {

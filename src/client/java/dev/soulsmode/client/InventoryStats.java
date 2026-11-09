@@ -198,27 +198,32 @@ public final class InventoryStats {
 		net.minecraft.resources.ResourceLocation moveset = dev.soulsmode.api.SoulsWeapons.movesetFor(stack);
 		String key = dev.soulsmode.SoulsAttack.damageKey(moveset);
 		dev.soulsmode.ds2.Ds2Damage.WeaponData data = dev.soulsmode.ds2.Ds2Damage.weapon(key);
-		int level = dev.soulsmode.SoulsAttack.upgradeLevel(stack);
+		float level = dev.soulsmode.SoulsAttack.upgradeLevel(stack);
+		int infusion = dev.soulsmode.SoulsUpgrade.infusion(stack);
 		Component name = stack.isEmpty() ? Component.translatable("gui.soulsmode.stats.no_weapon") : stack.getHoverName();
-		String plus = data == null ? "" : " +" + Math.min(level, data.maxLevel());
+		// The titanite level and its tier's maximum (SoulsUpgrade), "+N / +max".
+		int max = dev.soulsmode.SoulsUpgrade.maxLevel(stack);
+		String plus = data == null || max <= 0 ? "" : " +" + dev.soulsmode.SoulsUpgrade.level(stack) + "/+" + max;
 		String title = font.plainSubstrByWidth(name.getString(), right - left - font.width(plus)) + plus;
 		graphics.drawString(font, title, left, y, TEXT);
 		y += LINE;
 		if (data == null) {
 			return y;
 		}
-		float[][] parts = dev.soulsmode.ds2.Ds2Damage.attackParts(key, level, attributes, twoHanded, leftHand, -1, 0, null,
-				null);
+		float[][] parts = dev.soulsmode.ds2.Ds2Damage.attackParts(key, level, infusion, attributes, twoHanded, leftHand, -1, 0,
+				null, null);
 		for (int i = 0; i < TYPES.length; i++) {
-			int base = Math.round(parts[0][i]);
-			int bonus = Math.round(parts[1][i]);
+			// The stick's own factor (SoulsAttack.itemFactor), as its hits deal.
+			float factor = dev.soulsmode.SoulsAttack.itemFactor(stack);
+			int base = Math.round(parts[0][i] * factor);
+			int bonus = Math.round(parts[1][i] * factor);
 			if (i > 0 && base <= 0 && bonus <= 0) {
 				continue;
 			}
 			y = line(graphics, font, "gui.soulsmode.stats.attack." + TYPES[i], base + " + " + bonus, TEXT, left, right, y);
 		}
 		// Scaling letters (Str, Dex, Magic, Lightning, Fire, Dark), the ones that are not "-".
-		String[] letters = dev.soulsmode.ds2.Ds2Damage.scalingLetters(key, level);
+		String[] letters = dev.soulsmode.ds2.Ds2Damage.scalingLetters(key, Math.round(level), infusion);
 		String[] scalingKeys = {"strength", "dexterity", "magic", "lightning", "fire", "dark"};
 		graphics.drawString(font, Component.translatable("gui.soulsmode.stats.scaling"), left, y, LABEL);
 		y += LINE;

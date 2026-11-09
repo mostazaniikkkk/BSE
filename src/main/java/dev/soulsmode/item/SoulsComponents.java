@@ -26,6 +26,11 @@ public final class SoulsComponents {
 			SoulsMode.id("spell_uses"), DataComponentType.<Integer>builder().persistent(com.mojang.serialization.Codec.INT)
 					.networkSynchronized(net.minecraft.network.codec.ByteBufCodecs.VAR_INT).build());
 
+	/** Titanite reinforcement level of a weapon or armour piece (dev.soulsmode.SoulsUpgrade); absent = +0. */
+	public static final DataComponentType<Integer> REINFORCEMENT = Registry.register(BuiltInRegistries.DATA_COMPONENT_TYPE,
+			SoulsMode.id("reinforcement"), DataComponentType.<Integer>builder().persistent(com.mojang.serialization.Codec.INT)
+					.networkSynchronized(net.minecraft.network.codec.ByteBufCodecs.VAR_INT).build());
+
 	private SoulsComponents() {
 	}
 

@@ -73,6 +73,21 @@ public final class SoulsItems {
 	private SoulsItems() {
 	}
 
+	/**
+	 * Titanite (docs/research/titanite.md section 1, ItemParam 60970000 / 60975000 / 60980000 / 60990000 / 61000000):
+	 * reinforcement materials (dev.soulsmode.SoulsUpgrade). The slab also places the titanite slab block.
+	 */
+	public static final Item TITANITE_SHARD = register("titanite_shard", new Item(new Item.Properties()));
+	public static final Item LARGE_TITANITE_SHARD = register("large_titanite_shard", new Item(new Item.Properties()));
+	public static final Item TITANITE_CHUNK = register("titanite_chunk", new Item(new Item.Properties()));
+	public static final Item TITANITE_SLAB = register("titanite_slab",
+			new net.minecraft.world.item.BlockItem(dev.soulsmode.block.SoulsBlocks.TITANITE_SLAB, new Item.Properties()));
+	/** With the enchantment glint (the user's design, 2026-11-09). */
+	public static final Item TWINKLING_TITANITE = register("twinkling_titanite", new Item(new Item.Properties()
+			.component(net.minecraft.core.component.DataComponents.ENCHANTMENT_GLINT_OVERRIDE, true)));
+	public static final Item TITANITE_BLOCK = register("titanite_block",
+			new net.minecraft.world.item.BlockItem(dev.soulsmode.block.SoulsBlocks.TITANITE_BLOCK, new Item.Properties()));
+
 	private static Item register(String name, Item item) {
 		return Registry.register(BuiltInRegistries.ITEM, SoulsMode.id(name), item);
 	}
@@ -88,9 +103,15 @@ public final class SoulsItems {
 			entries.accept(SOUL_OF_A_GIANT);
 		});
 		ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.INGREDIENTS).register(entries -> {
+			entries.accept(TITANITE_SHARD);
+			entries.accept(LARGE_TITANITE_SHARD);
+			entries.accept(TITANITE_CHUNK);
+			entries.accept(TITANITE_SLAB);
+			entries.accept(TWINKLING_TITANITE);
 			entries.accept(RESIN_BOTTLE);
 			entries.accept(SOLID_RESIN);
 		});
+		ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.BUILDING_BLOCKS).register(entries -> entries.accept(TITANITE_BLOCK));
 		ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.COMBAT).register(entries -> {
 			entries.accept(LLOYDS_TALISMAN);
 			entries.accept(FIREBOMB);

@@ -71,6 +71,8 @@ public final class SoulsAttack {
 		float hitBackSwept = -1;
 		/** SoulsSounds: animation time up to which the TAE sound events were played (-1: none yet). */
 		float soundsUntil = -1;
+		/** Attack_SwingSpeed inside the AttackSpeedControl 151 window (SwingSpeed); NaN until the first tick sets it. */
+		float swingRate = Float.NaN;
 
 		Active(ResourceLocation movesetId, Moveset moveset, boolean leftHand, boolean weaponLeft, Moveset.Type type,
 				Attack attack, long startTick, float yaw) {
@@ -1354,9 +1356,10 @@ public final class SoulsAttack {
 			int resinType = leftHand ? -1 : SoulsResin.damageType(player);
 			Active current = ACTIVE.get(player.getUUID());
 			float[][] buffs = SoulsSpEffects.weaponBuffs(player, leftHand);
-			float[] attack = dev.soulsmode.ds2.Ds2Damage.attackRating(damageKey(moveset), upgradeLevel(weapon), stats,
-					grip(player).twoHanded(), leftHand, resinType,
+			float[] attack = dev.soulsmode.ds2.Ds2Damage.attackRating(damageKey(moveset), upgradeLevel(weapon),
+					SoulsUpgrade.infusion(weapon), stats, grip(player).twoHanded(), leftHand, resinType,
 					current == null ? 0 : current.staminaLack, buffs[0], buffs[1]);
+			scale(attack, itemFactor(weapon));
 			if (resinType == 3 && target.fireImmune()) {
 				attack[3] = 0;
 			}
@@ -1416,6 +1419,10 @@ public final class SoulsAttack {
 		if (!leftHand) {
 			SoulsResin.onHit(player, target);
 		}
+		SoulsInfusions.onHit(player, weapon, target);
+		Active swinging = ACTIVE.get(player.getUUID());
+		SoulsBleed.onHit(player, weapon, target, leftHand, grip(player).twoHanded(),
+				swinging == null ? 0 : swinging.staminaLack);
 		player.setLastHurtMob(target);
 		EnchantmentHelper.doPostAttackEffects(level, target, source);
 		if (weapon.hurtEnemy(target, player)) {
@@ -1467,6 +1474,7 @@ public final class SoulsAttack {
 		String key = damageKey(SoulsWeapons.movesetFor(weapon));
 		float[] attack = dev.soulsmode.ds2.Ds2Damage.attackRating(key, upgradeLevel(weapon), attacker.stats(),
 				attacker.twoHanded(), false, -1, attacker.staminaLack());
+		scale(attack, itemFactor(weapon));
 		float amount;
 		DamageSource source;
 		if (target instanceof ServerPlayer victim && SoulsGameMode.isActive(victim) && SoulsPlayer.data(victim).isPresent()) {
@@ -1529,7 +1537,9 @@ public final class SoulsAttack {
 			}
 			// A datapack armour piece counts in the slot it is worn in.
 			var pack = dev.soulsmode.content.SoulsContent.armor(stack);
-			out[i] = pack != null ? pack.piece() : dev.soulsmode.ds2.Ds2Damage.piece(set, i);
+			// A reinforced piece (SoulsUpgrade): its ArmorReinforceParam values at its level.
+			out[i] = pack != null ? pack.piece() : dev.soulsmode.ds2.Ds2Damage.pieceAt(dev.soulsmode.ds2.Ds2Damage.piece(set, i),
+					dev.soulsmode.ds2.Ds2Damage.armorUpgrade(set, i), SoulsUpgrade.level(stack));
 		}
 		return out;
 	}
@@ -1570,24 +1580,20 @@ public final class SoulsAttack {
 		return dev.soulsmode.content.SoulsContent.weapon(moveset) != null ? moveset.toString() : moveset.getPath();
 	}
 
-	/** The user's material -> DS2 upgrade level table. */
-	public static int upgradeLevel(ItemStack stack) {
-		if (stack.getItem() instanceof net.minecraft.world.item.TieredItem tiered) {
-			var tier = tiered.getTier();
-			if (tier == net.minecraft.world.item.Tiers.STONE) {
-				return 1;
-			}
-			if (tier == net.minecraft.world.item.Tiers.IRON || tier == net.minecraft.world.item.Tiers.GOLD) {
-				return 3;
-			}
-			if (tier == net.minecraft.world.item.Tiers.DIAMOND) {
-				return 6;
-			}
-			if (tier == net.minecraft.world.item.Tiers.NETHERITE) {
-				return 10;
-			}
+	/** The material's attack multiplier of the item the attack is made with (SoulsUpgrade.materialFactor). */
+	public static float itemFactor(ItemStack stack) {
+		return SoulsUpgrade.materialFactor(stack);
+	}
+
+	private static void scale(float[] attack, float factor) {
+		for (int i = 0; i < attack.length; i++) {
+			attack[i] *= factor;
 		}
-		return 0;
+	}
+
+	/** The DS2 reinforcement level a weapon attacks at: its titanite level rescaled to DS2 (SoulsUpgrade). */
+	public static float upgradeLevel(ItemStack stack) {
+		return SoulsUpgrade.ds2Level(stack);
 	}
 
 	/** Flat attack damage the item adds when held in the main hand (its tooltip value minus the base 1). */
@@ -1759,7 +1765,10 @@ public final class SoulsAttack {
 					net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(source.getEntity().getType()).toString(), 0f);
 		}
 		var data = guard(guard.movesetId);
-		float stability = data == null ? 0 : data.stability()[grip(player) == Moveset.Grip.ONE_HANDED ? 0 : 1];
+		// The guarding weapon's reinforcement raises its stability (titanite.md section 3; SoulsUpgrade).
+		ItemStack guardStack = guard.weaponLeft ? player.getOffhandItem() : player.getMainHandItem();
+		float stability = data == null ? 0 : data.stability(grip(player) == Moveset.Grip.ONE_HANDED ? 0 : 1,
+				upgradeLevel(guardStack));
 		// FUN_14034cc80(4, f): x (1 - 0.01 (30 + 50 f)) when the guarding weapon's requirements are not met (stamina.md).
 		float f = requirementLack(player, guard.movesetId);
 		if (f > 0) {
@@ -1883,7 +1892,32 @@ public final class SoulsAttack {
 		return (long) window << 32 | (target.getId() & 0xffffffffL);
 	}
 
+	/** The attack's clip time: real time since it started, slowed or sped up inside its swing window (SwingSpeed). */
 	private static float seconds(ServerPlayer player, Active active) {
-		return (player.serverLevel().getGameTime() - active.startTick) / 20f;
+		float real = (player.serverLevel().getGameTime() - active.startTick) / 20f;
+		if (Float.isNaN(active.swingRate)) {
+			active.swingRate = swingRate(player, active);
+			if (active.swingRate != 1) {
+				broadcast(player, new AttackPayloads.Swing(player.getId(), active.swingRate));
+			}
+		}
+		return dev.soulsmode.ds2.SwingSpeed.clipTime(active.attack, active.swingRate, real);
+	}
+
+	/**
+	 * FUN_140393350 at the attack start (docs/research/lack_of_stats.md): WAMP +0x0c x (1 - pen), PlayerLackOfStatsParam
+	 * row 8 with the weapon's Str/Dex lack and how short the stamina is of the attack's cost (cost after the row 11
+	 * lack factor, FUN_14038fb10 runs first).
+	 */
+	private static float swingRate(ServerPlayer player, Active active) {
+		var stats = SoulsPlayer.data(player).map(SoulsData::toAttributes).orElse(null);
+		if (stats == null || active.movesetId == null || active.attack == null) {
+			return 1;
+		}
+		float lack = dev.soulsmode.ds2.Ds2Damage.strDexLack(damageKey(active.movesetId), stats, grip(player).twoHanded());
+		var stamina = SoulsStamina.get(player);
+		float cost = active.attack.staminaCost() * lackCostFactor(player, active.movesetId);
+		float g = stamina == null ? 0 : dev.soulsmode.ds2.SwingSpeed.staminaShortfall(stamina.current(), cost);
+		return dev.soulsmode.ds2.SwingSpeed.rate(active.attack, lack, g);
 	}
 }

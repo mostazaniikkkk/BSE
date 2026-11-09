@@ -216,6 +216,7 @@ los params de DS2 (`docs/research/enemies.md`, `docs/research/enemy_ai.md`):
 | `defence`, `absorption` [magia, rayo, fuego, oscuro] | +0x9c / +0xa0..+0xac | daño del jugador: `max(piso, 6·AR − def)/6`, elementos `·(1 − abs%)` |
 | `guard` `{stability, blocked[5]}` | +0x74 / +0x78..+0x88 | opcional |
 | `attackMultiplier` | +0xd8 | multiplica los valores de ataque |
+| `bleedResistance` (opcional, 0..1) | +0xb4 × 0.01 | resistencia al sangrado (infusión Hemorragia, `docs/research/bleed.md`); por defecto 0.30, lo más común en DS2; 1 = inmune |
 | `souls` | +0xd0 | experiencia que recibe quien lo mata |
 | `rolls`, `drops` `[{item, count, chance}]` | ItemLotParam2_Chr modo 0 | cada tirada: `chance` % sobre `max(suma, 100 %)` |
 | `walkSpeed`, `runSpeed` | (movimiento raíz del paquete) | bloques por segundo |

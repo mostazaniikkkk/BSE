@@ -210,5 +210,85 @@
  "message.soulsmode.ascetic.none": [
   "bofire",
   90200
+ ],
+ "item.soulsmode.titanite_shard": [
+  "itemname",
+  60970000
+ ],
+ "item.soulsmode.titanite_shard.desc": [
+  "SimpleExplanation",
+  60970000
+ ],
+ "item.soulsmode.large_titanite_shard": [
+  "itemname",
+  60975000
+ ],
+ "item.soulsmode.large_titanite_shard.desc": [
+  "SimpleExplanation",
+  60975000
+ ],
+ "item.soulsmode.titanite_chunk": [
+  "itemname",
+  60980000
+ ],
+ "item.soulsmode.titanite_chunk.desc": [
+  "SimpleExplanation",
+  60980000
+ ],
+ "item.soulsmode.titanite_slab": [
+  "itemname",
+  60990000
+ ],
+ "item.soulsmode.titanite_slab.desc": [
+  "SimpleExplanation",
+  60990000
+ ],
+ "item.soulsmode.twinkling_titanite": [
+  "itemname",
+  61000000
+ ],
+ "item.soulsmode.twinkling_titanite.desc": [
+  "SimpleExplanation",
+  61000000
+ ],
+ "block.soulsmode.titanite_slab": [
+  "itemname",
+  60990000
+ ],
+ "enchantment.soulsmode.fire_infusion": [
+  "npcMenu",
+  59202
+ ],
+ "enchantment.soulsmode.magic_infusion": [
+  "npcMenu",
+  59203
+ ],
+ "enchantment.soulsmode.lightning_infusion": [
+  "npcMenu",
+  59204
+ ],
+ "enchantment.soulsmode.dark_infusion": [
+  "npcMenu",
+  59205
+ ],
+ "enchantment.soulsmode.poison_infusion": [
+  "npcMenu",
+  59206
+ ],
+ "enchantment.soulsmode.bleed_infusion": [
+  "npcMenu",
+  59207
+ ],
+ "enchantment.soulsmode.raw_infusion": [
+  "npcMenu",
+  59208
+ ],
+ "enchantment.soulsmode.enchanted_infusion": [
+  "npcMenu",
+  59209
+ ],
+ "enchantment.soulsmode.mundane_infusion": [
+  "npcMenu",
+  59210
  ]
 }

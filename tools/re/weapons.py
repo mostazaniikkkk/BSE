@@ -53,6 +53,9 @@ WEAPONS = {
     'club': 2400000,  # the stick (user's request, 2026-10-30)
     'spear': 2800000,
     'pickaxe': 2610000,
+    # Hoes (the user's choice, 2026-11-09): the Silverblack Sickle, WeaponTypeParam 151, axe-like moves
+    # (docs/research/scythes.md).
+    'silverblack_sickle': 2100000,
     'shield': 11230000,  # Drangleic Shield
     'fists': 3400000,
     # The lit torch: FUN_14034f300 puts WeaponParam 6000000 in hand 0 (the left) as a temporary override.
@@ -143,6 +146,9 @@ HIT_BACK_MATRIX = params.load('HitBackMatrixParam')
 PSPL = params.load('PhysicalStatsPerLevelStatValuesParam')
 LACK = params.load('PlayerLackOfStatsParam')
 HIT_BACK = params.load('HitBackParam')
+RCP = params.load('ReinforceCostParam')
+CAS = params.load('CustomAttrSpecParam')
+WSA = params.load('WeaponStatsAffectParam')
 
 
 def hit_back(pdp_id):
@@ -264,7 +270,49 @@ def attack_data(weapon_id):
             'coef': [[round(x, 4) for x in struct.unpack_from('<9f', wsa, 8 + level * 0x24)] for level in range(11)],
             'requirements': list(struct.unpack_from('<4H', w, 0x18)),
             'weaponFactor': round(struct.unpack_from('<f', w, 0x80)[0], 4),
-            'handFactor': [round(struct.unpack_from('<f', T[weapon_type], off)[0], 4) for off in (0x60, 0x54)]}
+            'handFactor': [round(struct.unpack_from('<f', T[weapon_type], off)[0], 4) for off in (0x60, 0x54)],
+            'reinforceCost': reinforce_cost(struct.unpack_from('<I', r, 0xf0)[0], max_level),
+            # Mundane (infusion 9, docs/research/bleed.md section 8): S[0] = PSPL +0x8c of the lowest stat x WTP u8
+            # +0x13a x 0.01 (FUN_1401641c0; applies with the WeaponTypeParam version >= 0x19, which the regulation has).
+            'mundaneFactor': round(T[weapon_type][0x13a] * 0.01, 4),
+            **infusions(r)}
+
+
+def reinforce_cost(rcp_id, max_level):
+    """ReinforceCostParam (docs/research/titanite.md section 2.2; WRP +0xf0 / ARP +0x70): per target level 1..max,
+    [souls, material ItemParam id, quantity] from +0x00 + 4L (i32), +0x28 + 4L (u32), +0x50 + 2L (u16), L = current
+    level (FUN_14003c690). Empty when the row is missing."""
+    row = RCP.get(rcp_id)
+    if row is None:
+        return []
+    return [[struct.unpack_from('<i', row, 4 * lv)[0], struct.unpack_from('<I', row, 0x28 + 4 * lv)[0],
+             struct.unpack_from('<H', row, 0x50 + 2 * lv)[0]] for lv in range(max_level)]
+
+
+# Infusion i (docs/research/titanite.md section 4): the element it adds to (exe table 0x1410c3e10 byte 0: 1 magic,
+# 2 lightning, 3 fire, 4 dark, 5 poison, 6 bleed, 0 physical) and the WRP column holding the amount moved
+# (FUN_14034fe10). Its WeaponStatsAffectParam row is WRP +0x4c + i (byte 1 of the table).
+INFUSION_ELEMENT = [0, 3, 1, 2, 4, 5, 6, 0, 0, 0]
+INFUSION_AMOUNT = [None, 0xcc, 0xc4, 0xc8, 0xd0, 0xd4, 0xd8, 0xdc, 0xe0, 0xe4]
+
+
+def infusions(r):
+    """The weapon's infusions: CustomAttrSpecParam (WRP +0xe8) u32 +0x00 = mask, bit i = infusion i allowed
+    (FUN_1401a9290), 0 without a row; per infusion its WSA row's scale +0x00 and coefficients per level, the element and
+    the amount moved (FUN_14034c5c0 / FUN_14034fed0). null for an infusion whose WSA row does not exist."""
+    cas = CAS.get(struct.unpack_from('<I', r, 0xe8)[0])
+    wsa_base = struct.unpack_from('<I', r, 0x4c)[0]
+    out = []
+    for i in range(10):
+        row = WSA.get(wsa_base + i)
+        if row is None:
+            out.append(None)
+            continue
+        out.append({'element': INFUSION_ELEMENT[i],
+                    'amount': round(struct.unpack_from('<f', r, INFUSION_AMOUNT[i])[0], 4) if INFUSION_AMOUNT[i] else 0.0,
+                    'scale': round(struct.unpack_from('<f', row, 0)[0], 4),
+                    'coef': [[round(x, 4) for x in struct.unpack_from('<9f', row, 8 + level * 0x24)] for level in range(11)]})
+    return {'infusionMask': struct.unpack_from('<I', cas, 0)[0] if cas else 0, 'infusions': out}
 
 
 def critical_ranges(row):
@@ -304,6 +352,24 @@ def window(tracks, track, duration):
 CRITICAL_VICTIM = {'riposte': 79030010, 'guard_break': 79040010}
 
 
+def event_window(tracks, track, user, duration):
+    """[start, end] in seconds of the first event with this userData on a track, or None."""
+    for name, _, ev in tracks:
+        if name.strip() == track:
+            for s, l, u in ev:
+                if u == user:
+                    return [round(s * duration, 4), round((s + l) * duration, 4)]
+    return None
+
+
+def swing_window(tracks, duration):
+    """AttackSpeedControl userData 151 (FUN_140368e70 case 0x97 -> chr.c0+0xa4): while inside it, FUN_14035d580 writes
+    CP Attack_SwingSpeed = b8+0x1fc, which the attack's 0x7d play-speed nodes apply to the whole clip
+    (docs/research/lack_of_stats.md section 1). The 150 window (b8+0x200 x b8+0x1f8) is not exported: its multiplier
+    b8+0x200 has no confirmed writer."""
+    return event_window(tracks, 'AttackSpeedControl', 151, duration)
+
+
 def animation(tae_id, motion_type, critical=False, kind=None):
     """Timing data of one TAE animation, or None with the reason. Guards (WeaponAttackMotionParam type 13) are held
     stances without cancel tracks: only their length is exported."""
@@ -339,6 +405,7 @@ def animation(tae_id, motion_type, critical=False, kind=None):
                 'moveLock': window(tracks, 'CancelControl_Move', duration)[1],
                 'attackLock': free[1] if free else round(duration, 4),
                 'grabRelease': bind[1] if bind else None,
+                'swingSpeedWindow': swing_window(tracks, duration),
                 'victim': catch_victim(CRITICAL_VICTIM[kind]) if kind in CRITICAL_VICTIM else backstab_victim(tae_id),
                 'regenBlock': regen_block(tae_id)}, None
     if missing:
@@ -358,6 +425,7 @@ def animation(tae_id, motion_type, critical=False, kind=None):
         # Morpheme AttackDuration track (userData 120, FUN_140368e70 drives chr.c0+0x54): a dodge started inside it
         # costs ChrCommonParam+0x3c (1.25) times more (FUN_140376770).
         'attackDuration': window(tracks, 'AttackDuration', duration),
+        'swingSpeedWindow': swing_window(tracks, duration),
     }, None
 
 
@@ -830,6 +898,9 @@ def main():
                  # level 0) + WeaponTypeParam +0xd0 one-handed / +0xd4 two-handed (FUN_14034d7b0, no effects or lack).
                  'guardStability': [round(struct.unpack_from('<f', R[reinforce], 0x74)[0]
                                           + struct.unpack_from('<f', T[weapon_type], off)[0], 4) for off in (0xd0, 0xd4)],
+                 # Its reinforcement part per level (WRP +0x74 + 4 x level, 11 floats; titanite.md section 3): the shield's
+                 # stability grows with the level (Drangleic 55 -> 63).
+                 'guardStabilityByLevel': [round(x, 4) for x in struct.unpack_from('<11f', R[reinforce], 0x74)],
                  # Attacker side of the stamina damage on guard (hit+0xc0, FUN_140391fe0): WeaponParam +0x84 x
                  # WeaponTypeParam +0x64 (right hand) / +0x58 (left hand).
                  'guardStaminaRates': [round(struct.unpack_from('<f', W[weapon_id], 0x84)[0]
@@ -982,19 +1053,31 @@ def main():
         if a is None:
             return None
         r = arp[struct.unpack_from('<I', a, 0x18)[0]]
+        # Reinforcement (titanite.md section 5, damage.md: FUN_14034dbb0 / FUN_14034dda0): physical and elements lerp
+        # from +0x00.. / +0x10.. to +0x30.. / +0x40.. by level / ARP +0x60 (max level); cost row ARP +0x70.
+        max_level = struct.unpack_from('<i', r, 0x60)[0]
         return {'factor': round(struct.unpack_from('<f', a, 0x1c)[0], 4),
                 'defence': [round(x, 4) for x in struct.unpack_from('<4f', r, 0x00)],
-                'absorption': [round(x * 0.01, 5) for x in struct.unpack_from('<4f', r, 0x10)]}
+                'absorption': [round(x * 0.01, 5) for x in struct.unpack_from('<4f', r, 0x10)],
+                'maxLevel': max_level,
+                'defenceMax': [round(x, 4) for x in struct.unpack_from('<4f', r, 0x30)],
+                'absorptionMax': [round(x * 0.01, 5) for x in struct.unpack_from('<4f', r, 0x40)],
+                'reinforceCost': reinforce_cost(struct.unpack_from('<I', r, 0x70)[0], max_level),
+                # Bleed resistance % (bleed.md section 2, FUN_14034dda0 [6]): ARP +0x24 at +0, +0x54 at the max level.
+                'bleedAbsorption': round(struct.unpack_from('<f', r, 0x24)[0] * 0.01, 5),
+                'bleedAbsorptionMax': round(struct.unpack_from('<f', r, 0x54)[0] * 0.01, 5)}
     out['armor'] = {name: [piece(base + i) for i in range(4)] for name, base in (
         ('naked', 11001100), ('leather', 11040100), ('chainmail', 17420100), ('iron', 11050100), ('gold', 15130100),
         ('diamond', 17240100), ('turtle', 11660100))}
     out['statBonus'] = {name: [struct.unpack_from('<f' if name.startswith('absorb') else '<i', pspl[v], off)[0]
                                for v in range(1, 100)] for name, off in (
         ('str', 0x0c), ('dex', 0x10), ('magic', 0x14), ('fire', 0x18), ('lightning', 0x1c), ('dark', 0x20),
-        ('bleed', 0x28), ('poison', 0x2c),
+        ('bleed', 0x28), ('poison', 0x2c), ('mundane', 0x8c),
         # Defence side (FUN_14038d790 / FUN_14038d270): defStat +0x80, elemental absorption x0.01 magic +0x58,
         # fire +0x5c, lightning +0x60, dark +0x64.
-        ('defStat', 0x80), ('absorbMagic', 0x58), ('absorbFire', 0x5c), ('absorbLightning', 0x60), ('absorbDark', 0x64))}
+        ('defStat', 0x80), ('absorbMagic', 0x58), ('absorbFire', 0x5c), ('absorbLightning', 0x60), ('absorbDark', 0x64),
+        # Bleed resistance % of the stats (bleed.md section 2): PSPL f32 +0x48 of row floor((3 Adp + Fth) / 4).
+        ('absorbBleed', 0x48))}
     # A parried attacker (player victim, c0001; docs/research/weapons.md "Riposte"): a00_16_1010 DmgParryBreak_Start
     # (StabControl 261, the riposte window, from the end of 262 to its end), the loop 1020 for DamageCtrlParam
     # 99933130 +0x18 = 2.0 s (reaction 9: the user's choice, not confirmed as the parry's), then 1030 End.
@@ -1070,6 +1153,10 @@ def main():
                    'holdSuffix': '_2w_%d%s' % (stance, '' if side == 'right' else '_l')}
             for side in ('right', 'left')}
     out['guardLayer'] = guard_layer(out['weapons'])
+    # Attack swing speed (docs/research/lack_of_stats.md section 1.4, FUN_140393350 at the attack start): inside the
+    # AttackSpeedControl 151 window the clip plays at WAMP +0x0c (the slot's motionFactors[1]) x (1 - pen),
+    # pen = PlayerLackOfStatsParam row 8 with the weapon's Str/Dex lack f (slot+0x8c) and the stamina shortfall g.
+    out['swingSpeedLackRow'] = [round(x, 4) for x in struct.unpack_from('<4f', LACK[8], 0)]
     # c0001 damage reaction (docs/research/hit_reaction.md): DmgCategory 30 / 40 play the a00_16_0010..0083
     # DmgKnockBackLight / Heavy clips; locks at play speed 1 (divide by reactionSpeeds).
     kb_d = anim_duration(160050)

@@ -117,6 +117,7 @@ public final class AttackClient {
 			Entity entity = context.client().level == null ? null : context.client().level.getEntity(payload.entityId());
 			if (entity instanceof AbstractClientPlayer player) {
 				SoulsAnimations.stop(player);
+				dev.soulsmode.client.anim.SwingClient.stopped(player.getId());
 				// A held guard released: SM 0x210e leaves 0x2110 with its exit blend.
 				dev.soulsmode.client.anim.GuardLayerClient.stop(player);
 				if (player == context.client().player) {
@@ -168,6 +169,13 @@ public final class AttackClient {
 				// A wall bounce plays at its DmgHitBackDuration (SM_HitBack's 0x7d node); everything else at 1.
 				SoulsAnimations.play(player, animation, attack.mirroredFor(payload.weaponLeft()),
 						type == Moveset.Type.ITEM_USE ? SoulsAttack.hitBackSpeed(payload.moveset()) : 1);
+			}
+			// DS2's swing speed (SwingSpeed): the server's rate follows in a Swing payload.
+			if (type == Moveset.Type.ITEM_USE || attack.guard() || type == Moveset.Type.FALL) {
+				dev.soulsmode.client.anim.SwingClient.stopped(player.getId());
+			} else {
+				dev.soulsmode.client.anim.SwingClient.started(player.getId(), attack,
+						attack.mirroredFor(payload.weaponLeft()));
 			}
 			boolean guardAttack = type == Moveset.Type.GUARD_ATTACK || type == Moveset.Type.GUARD_ATTACK_COMBO;
 			if (!guardAttack && !attack.guard()) {
@@ -224,7 +232,8 @@ public final class AttackClient {
 
 	/**
 	 * Design choice: the attack key breaks the aimed block when the player may break it and holds no weapon (hand,
-	 * shovel, hoe, blocks...) or a weapon that is the right tool for it (a pickaxe on stone, an axe on wood). Anything
+	 * shovel, blocks...) or a weapon that is the right tool for it (a pickaxe on stone, an axe on wood, a hoe on leaves or
+	 * a crop: SoulsTools.harvests). Anything
 	 * else is an attack, so a sword swung at the ground does not dig it.
 	 */
 	private static boolean mines(Minecraft client, LocalPlayer player) {
@@ -233,8 +242,9 @@ public final class AttackClient {
 			return false;
 		}
 		ItemStack held = player.getMainHandItem();
-		return SoulsWeapons.movesetFor(held).equals(SoulsWeapons.DEFAULT)
-				|| held.isCorrectToolForDrops(client.level.getBlockState(block.getBlockPos()));
+		var state = client.level.getBlockState(block.getBlockPos());
+		return SoulsWeapons.movesetFor(held).equals(SoulsWeapons.DEFAULT) || held.isCorrectToolForDrops(state)
+				|| dev.soulsmode.SoulsTools.harvests(held, state, client.level, block.getBlockPos());
 	}
 
 	/** Holding the attack key keeps breaking a block only when {@link #mines} allows it. */
@@ -260,7 +270,8 @@ public final class AttackClient {
 			return false;
 		}
 		boolean aimsAtBlock = client.hitResult instanceof BlockHitResult block && block.getType() == HitResult.Type.BLOCK
-				&& isInteractive(client.level.getBlockState(block.getBlockPos()), client, block);
+				&& (isInteractive(client.level.getBlockState(block.getBlockPos()), client, block)
+				|| dev.soulsmode.SoulsTools.usesOn(player, block, client.level.getBlockState(block.getBlockPos())));
 		// Holding a block aimed at another one places it: no nearby chest or bonfire takes the click.
 		boolean places = player.getMainHandItem().getItem() instanceof BlockItem
 				&& client.hitResult instanceof BlockHitResult hit && hit.getType() == HitResult.Type.BLOCK;
@@ -433,7 +444,7 @@ public final class AttackClient {
 			}
 		} else if (current != null && currentType == Moveset.Type.JUMP) {
 			// The jump attack's leap (JumpAttackLeap), then the rest of the animation.
-			float t = ++ticks / 20f;
+			float t = clip(player, ++ticks);
 			boolean first = !leapStarted && t >= JumpAttackLeap.START;
 			if (first) {
 				JumpAttackLeap.start(player);
@@ -444,7 +455,7 @@ public final class AttackClient {
 				current = null;
 				JumpAttackLeap.stop();
 			}
-		} else if (current != null && ++ticks / 20f >= current.duration()) {
+		} else if (current != null && clip(player, ++ticks) >= current.duration()) {
 			current = null;
 		}
 	}
@@ -463,10 +474,15 @@ public final class AttackClient {
 		return TORCH_HELD.contains(entity.getId());
 	}
 
+	/** The local attack's clip time after {@code t} ticks, with DS2's swing speed (SwingClient). */
+	private static float clip(LocalPlayer player, int t) {
+		return dev.soulsmode.client.anim.SwingClient.clipTime(player.getId(), current, t / 20f);
+	}
+
 	/** CancelControl_Move of the local player's attack. */
 	public static boolean movementLocked() {
 		LocalPlayer player = Minecraft.getInstance().player;
-		return current != null && current.blocksMovement(ticks / 20f)
+		return current != null && current.blocksMovement(player == null ? ticks / 20f : clip(player, ticks))
 				|| dev.soulsmode.client.bonfire.BonfireClient.sitting() || VictimClient.cannotMove()
 				|| player != null && RollClient.movementLocked(player)
 				|| dev.soulsmode.client.anim.PlayerReactionClient.movementLocked();
@@ -497,6 +513,11 @@ public final class AttackClient {
 	private static Attack powerStanceAttack(ResourceLocation moveset, Moveset.Type type) {
 		var data = dev.soulsmode.ds2.PowerStance.data(SoulsAttack.damageKey(moveset));
 		return data == null ? null : data.attack(type);
+	}
+
+	/** Whether the local player is in an attack (QA). */
+	public static boolean attacking() {
+		return current != null;
 	}
 
 	/** Dodging ends the attack (the server allows it only outside CancelControl_Avoid). */

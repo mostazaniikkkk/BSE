@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class EnemiesTest {
 	private static final Enemies.Def HOLLOW = new Enemies.Def(320, 1240, 0, 1.47f, 317, new float[] {15, 30, 30, 30},
 			50, new float[] {80, 80, 80, 80, 80}, 1, 90, 1, List.of(), List.of(), 1, 2, 0.6f, 1.9f, 16, Map.of(), Map.of(),
-			"", "", "", null, false, null);
+			"", "", "", null, false, null, 0.15f);
 	private static final Enemies.Damage SLASH = new Enemies.Damage(new float[] {118, 0, 0, 0, 0}, 34, 1, 240);
 
 	@Test

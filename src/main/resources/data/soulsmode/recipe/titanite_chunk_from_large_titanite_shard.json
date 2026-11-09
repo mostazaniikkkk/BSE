@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "###",
+    "###",
+    "###"
+  ],
+  "key": {
+    "#": {
+      "item": "soulsmode:large_titanite_shard"
+    }
+  },
+  "result": {
+    "id": "soulsmode:titanite_chunk",
+    "count": 1
+  }
+}

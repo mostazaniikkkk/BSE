@@ -51,7 +51,7 @@
  "gui.soulsmode.travel.entry_dimension": "%s · %s",
  "message.soulsmode.bonfire.gone": "That bonfire is gone or out",
  "gui.soulsmode.travel.no_picture": "No picture",
- "message.soulsmode.bonfire.need_level": "Spend {0} experience level to kindle this bonfire",
+ "message.soulsmode.bonfire.need_level": "Experience levels needed to kindle this bonfire: %s",
  "message.soulsmode.bonfire.activated": "The bonfire is kindled",
  "item.soulsmode.human_effigy.desc": "Nullifies Hollow state.",
  "gui.soulsmode.stats.load": "Load",
@@ -102,5 +102,9 @@
  "gui.soulsmode.bonfire.burn_ascetic": "Burn Bonfire Ascetic",
  "gui.soulsmode.bonfire.rename": "Rename",
  "message.soulsmode.ascetic.burned": "What is done cannot be undone (Cycle %s)",
- "message.soulsmode.ascetic.busy": "The flames are still consuming another place"
+ "message.soulsmode.ascetic.busy": "The flames are still consuming another place",
+ "message.soulsmode.bonfire.need_sword": "Plant a stone sword in the campfire to kindle the bonfire (right click with it in hand)",
+ "block.soulsmode.titanite_block": "Block of Titanite",
+ "gui.soulsmode.reinforce.cost": "Reinforce to +%s: %s levels",
+ "gui.soulsmode.reinforce.cost_one": "Reinforce to +%s: %s level"
 }

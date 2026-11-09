@@ -66,6 +66,15 @@ public final class SoulsAnimations {
 		return played;
 	}
 
+	/** Changes the playback speed of what the normal or the mirrored layer is playing (SwingClient). */
+	public static void speed(AbstractClientPlayer player, boolean mirrored, float speed) {
+		PlayerAnimationController controller = controller(player, mirrored);
+		SpeedModifier modifier = controller == null ? null : SPEEDS.get(controller);
+		if (modifier != null) {
+			modifier.speed = speed;
+		}
+	}
+
 	/** Plays on the normal or the mirrored layer, stopping whatever the other one was playing. */
 	public static boolean play(AbstractClientPlayer player, ResourceLocation animation, boolean mirrored) {
 		PlayerAnimationController other = controller(player, !mirrored);

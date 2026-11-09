@@ -13,6 +13,8 @@ Steps, in order (each script is in tools/re and documents where its data comes f
   sounds     DS2 sounds: .ogg, sounds.json, attack_sounds.json (sounds.py, uses the game's FMOD and ffmpeg)
   icons      item textures from the menu icons (icons.py)
   lang       language files: the mod's own strings plus DS2's menu texts (lang.py)
+  blocks     the titanite block texture from Minecraft's netherite block (titanite_block.py; reads the Minecraft client
+             jar Fabric Loom downloads, or MINECRAFT_JAR)
 
 The DS2 folder comes from --game, else the DS2_GAME environment variable, else tools/ds2_game.txt, else Steam's
 default folder. Requirements: Python 3.10+, pip install -r tools/requirements.txt, ffmpeg on the PATH (or FFMPEG).
@@ -27,7 +29,7 @@ import time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RE = os.path.join(ROOT, 'tools', 're')
-STEPS = ['extract', 'params', 'weapons', 'enemies', 'player', 'poise', 'sounds', 'icons', 'lang']
+STEPS = ['extract', 'params', 'weapons', 'enemies', 'player', 'poise', 'sounds', 'icons', 'lang', 'blocks']
 GAME_FILES = ['DarkSoulsII.exe', 'GameDataEbl.bhd', 'GameDataEbl.bdt', 'GameDataKeyCode.pem', 'enc_regulation.bnd.dcx',
               'fmodex64.dll', 'fmod_event64.dll']
 
@@ -126,6 +128,8 @@ def main():
             run(env, 'icons.py', os.path.join(assets, 'textures', 'item'))
         elif step == 'lang':
             run(env, 'lang.py', 'build')
+        elif step == 'blocks':
+            run(env, 'titanite_block.py')
         print('  done in %.0f s' % (time.time() - start), flush=True)
     print('All DS2 files are in', res, '- now: gradlew build')
 

@@ -148,6 +148,139 @@ Cosas que hice más simples aunque el dato de DS2 existe o se puede sacar. Se co
 - [ ] **Los invasores NPC no tienen efectos visuales (VFX) de espíritu oscuro**: el usuario pidió el gigante "con los
       vfx de los invasores" y no existen. Investigar el efecto de los espíritus oscuros de DS2.
 
+## Titanita y mejora de armas (próximo parche, usuario 2026-11-09; titanite.md, scythes.md, CHANGELOG.md)
+- [x] **Implementar la titanita.** Mejorar armas por nivel DS2 con titanita, con los valores de
+      `WeaponReinforceParam` y los costos de `ReinforceCostParam` (titanite.md). Todas las decisiones
+      del usuario están tomadas (2026-11-09).
+- [x] **Sistema de daño nivel DS2 × multiplicador de material.** Multiplicadores propuestos por Claude y aprobados
+      por el usuario (2026-11-09): madera 0.67, piedra 0.83, hierro 1, oro 0.67, diamante 1.17, netherita 1.33.
+      - Tiers de nivel máximo (usuario): +5 madera, piedra, oro y palo; +10 hierro, diamante y
+        sin material; +15 netherita (oro y palo bajados a +5 por el usuario, 2026-11-09).
+      - Reescalado a DS2: el máximo del tier equivale al máximo del arma en DS2.
+      - Las armas +5 de DS2 (espada de piedra, hacha de diamante, espada de netherita) llegan al máximo de su tier.
+- [x] Palo como tier propio, ×0.5 al ataque (`SoulsUpgrade.materialFactor`).
+- [x] Azadas con la Hoz Platinegra (2100000).
+- [x] El hacha y la azada siguen cumpliendo su función (`SoulsTools`). Probado en el servidor QA.
+- [x] **Ataque lento por no cumplir requisitos, ventana 151** (implementado 2026-11-09, `SwingSpeed`,
+      `SwingClient`; lack_of_stats.md). Dentro de la ventana 151 de `AttackSpeedControl` el clip corre a
+      `WAMP+0x0c × (1 − pen8)`: PLSP fila 8 con la falta de Fuerza/Destreza y la falta de estamina para el costo.
+      Probado en el servidor QA (modo `swing` de QaDriver): con el Explorador, la espada de madera da ×1.0 y el
+      hacha de netherita (Fue 28) da ×0.966 (base 1.3 × 0.743).
+- [ ] **Ventana 150 (inicio del golpe, fila 7): sin portar.** Corre a velocidad 1 porque su multiplicador
+      `b8+0x200` no tiene escritor confirmado. Hace falta leer memoria con DS2 en ejecución.
+- [ ] Ataques corriendo: en DS2 la ventana 150 usa `PlayerCommonParam +0x88/+0x8c` según la velocidad de
+      movimiento en vez de la fila 7. Va junto con la ventana 150.
+- [ ] Invasores NPC: sus ataques no usan la velocidad de golpe (`SoulsInvader` tiene su propio reloj).
+- [ ] El segundo escritor de DS2 (`FUN_1403947b0`, cuando `ctx+0x48 ≠ 4`) pone la velocidad sin falta de stats;
+      no se sabe cuándo pasa, así que el mod siempre aplica la falta.
+- [ ] Sin confirmar en lack_of_stats.md:
+  - [ ] el escritor de `b8+0x200` (ventana 150);
+  - [ ] el segundo escritor `FUN_1403947b0` (qué es `ctx+0x48`);
+  - [ ] `b8+0x195`;
+  - [ ] las unidades de tiempo de la pista;
+  - [ ] las otras tres llamadas a `FUN_140393350`;
+  - [ ] qué son las filas 2, 3, 5, 13, 14 y 27;
+  - [ ] filas sin consumidor: 12 y 20 a 25.
+- [ ] PLSP filas 15, 16 y 17 (defensa y resistencias de la armadura con falta de stats) y 19 (multiplicador del
+      costo de acción): con consumidor identificado, no portadas.
+- [ ] Requisitos por material en picos y azadas: usan una sola arma DS2 para todos los materiales. Decisión del
+      usuario.
+- [ ] Peso de la azada: por ahora conserva el de su receta. Falta decidir si toma el peso DS2 de la Hoz Platinegra
+      (4).
+- [ ] **El combate con azada no está probado en el juego.** Compila y la prueba QA solo cubrió arar y cosechar;
+      falta verla atacar con la Hoz Platinegra.
+- [x] Titanita como ítems: fragmento, fragmento grande, trozo, losa y titanita centelleante; el hueso de dragón
+      petrificado no lo usa ningún arma del mod. Faltan sus texturas (iconos DS2) y su obtención en Minecraft. Lo de
+      DS2 (titanite.md): tiendas, drops por modelo de enemigo y tesoros fijos.
+- [x] Mejora en la **mesa de herrería** (decisión del usuario, 2026-11-09; en DS2 la hace el herrero NPC,
+      `FeGroupNpcMenuReinforce`). La mejora no choca con los encantamientos: se conservan y se suman encima.
+- [x] Click con la rueda del mouse sobre el arma: la página del arma (`InventoryStats`) muestra el nivel de mejora
+      guardado en el arma y el máximo de su tier (hoy muestra el nivel que da el material).
+- [x] Yunque (decisión del usuario, 2026-11-09): al combinar dos armas o dos piezas de armadura con nivel de
+      mejora, el resultado queda con el nivel más alto. No se promedian ni se suman.
+- [x] Material por nivel (usuario): la ruta de DS2 reescalada al tier. Titanita normal: fragmento → grande → trozo
+      → losa; centelleante: ×1 a ×5. El último nivel del tier siempre usa la losa (o la centelleante ×5).
+- [x] Costo en niveles de experiencia (usuario; en DS2 son almas): mejorar a +N cuesta N niveles.
+- [x] Sin plantilla en la mesa de herrería: arma o armadura más titanita (usuario).
+- [x] Obtención de la titanita (usuario): cofres de estructura, drops de phantom, devastador, murciélago y vex, y
+      comercio con el herrero de armas, el armero y el comerciante errante. 
+      - Drop por mob (probabilidades de DS2): murciélago, fragmento 20 %; phantom, grande 15 %; vex, trozo 2 %;
+        devastador, losa 2 % o centelleante 5 %.
+      - Cofres: mazmorras y minas (fragmento y grande); saqueadores y mansiones (fragmento a trozo); fortalezas y
+        bastiones (trozo y losa); ciudades antiguas (losa y centelleante).
+      - Aldeanos por nivel: novato fragmento, aprendiz grande, oficial trozo, experto losa; el precio sale del valor
+        de DS2.
+      - Precios: 500 almas de DS2 = 1 esmeralda (fragmento 2, grande 5, trozo 12, losa 26). La centelleante la vende
+        solo el comerciante errante (30), en pocas unidades.
+      - Cofres: 1 a 3 unidades, no en todos.
+      - Crafteo (usuario): 9 fragmentos = 1 grande; 9 grandes = 1 trozo; 9 trozos = 1 losa. La centelleante no se
+        craftea. Al revés también: 1 losa = 9 trozos, 1 trozo = 9 grandes, 1 grande = 9 fragmentos.
+      - Losa de titanita colocable (usuario): mismo tamaño que las losas de Minecraft. 2 losas = bloque de titanita,
+        decorativo, como el de netherita pero más claro y trizado.
+- [x] Mejora de armadura con los máximos de DS2 (usuario): la normal hasta +10, la especial (sets del Rey y de
+      Drangleic) hasta +5. DS2: armadura normal hasta +10 con titanita; armadura especial (sets del Rey y de
+      Drangleic) hasta +5 con titanita centelleante. Defensa ×2 en +10 y ~×1.5 en +5 (`ArmorReinforceParam`).
+- [x] Infusiones de DS2 como encantamientos (usuario, 2026-11-09; implementadas Fuego, Magia, Electricidad,
+      Oscuridad, Veneno, Básico y Encantado): salen de la mesa de encantamientos, de libros
+      en cofres y del bibliotecario. DS2: 10 tipos, 2000 almas y una piedra, infusiones permitidas por arma (`CustomAttrSpecParam`),
+      el nivel no se pierde (titanite.md §5).
+- [x] Estabilidad de guardia por nivel en escudos. DS2: `WRP +0x74 + 4·nivel` (Escudo de Drangleic: 55 en +0, 63 en
+      +5). El mod solo exporta la de +0 (`tools/re/weapons.py`, `guardStability`).
+- [x] Infusión Hemorragia (2026-11-09, `SoulsBleed`, bleed.md). Probada en el servidor QA (acumulación, bajada y
+      estallido contra un zombi).
+- [ ] Simplificación: un golpe bloqueado con escudo no acumula sangrado. DS2 lo reduce por `(1 − guardia)` con un
+      campo del escudo sin identificar (bleed.md "Sin confirmar").
+- [ ] Sangrado sin portar: la ralentización del estallido (`100090[06]`, ×0.5 / ×0.7 3 s, sin confirmar), el
+      sangrado que causan los enemigos al jugador, y el factor Z con varios jugadores en la sesión (ChrMultiplayParam).
+- [ ] El Ogro de DS2 tiene 50 % de resistencia al sangrado, pero en el mod el Ogro es el golem de hierro, que el
+      usuario dejó inmune.
+- [x] Infusión Mundano (2026-11-09): PSPL `+0x8c` del stat más bajo × WTP `+0x13a` (bleed.md §8); test
+      `InfusionTest` (espada larga, stat mínimo 10: 166 en +0, 222.5 en +10).
+- [ ] Armas y armaduras de datapack: no se pueden reforzar (no traen ReinforceCostParam). Falta definir cómo las
+      declara un datapack.
+- [ ] Infusiones en el palo y el escudo: solo con libro en el yunque; la mesa de encantamientos no los encanta
+      (no tienen encantabilidad en vanilla).
+- [x] Decisiones de Claude en la titanita, aprobadas por el usuario (2026-11-09; no son de DS2):
+  - [x] bloque y losa con propiedades del bloque de hierro (dureza 5, resistencia 6, cualquier pico);
+  - [x] en los cofres, cada titanita de la lista con el mismo peso;
+  - [x] ofertas de los herreros con 12 usos, experiencia 1 / 5 / 10 / 15 y multiplicador de precio 0.05 (los
+        valores de vanilla); la del errante con 1 uso;
+  - [x] los drops de mobs exigen que los mate un jugador (`killed_by_player`), como en DS2 los mata el jugador;
+  - [x] encantamientos de infusión con los costos de Multidisparo (peso 2, 20 a 50, yunque 4) y en ambas manos;
+  - [x] textura del bloque: la de netherita aclarada 35 % hacia gris claro, con 4 grietas en zigzag (rehechas: la primera versión tenía una forma inapropiada).
+- [ ] Palo con Irrompibilidad: falta medir en el juego el desgaste golpe a golpe. En el QA (`tools/qa/stick_setup.js`)
+      los golpes contra el zombi de prueba casi no conectan; revisar la prueba.
+- [ ] Guadañas de DS2 sin portar: 8 guadañas reales con 3 movesets (Gran guadaña, Gran machete, Hoz de luna llena,
+      Hoz de media luna, Nahr Alma, Guadaña de hueso, Guadaña del deseo, Forlorn) y la "Guadaña" 3210000
+      (alabarda). La exportación ya se probó sin errores (scythes.md §4).
+- [ ] Invasores NPC: solo eligen de las listas de espadas y hachas (`SoulsInvader`). No usan azadas ni el palo con
+      su tier nuevo.
+- [ ] Sin confirmar en titanite.md (investigar):
+  - [ ] máximo de pila 99 y precios de tienda;
+  - [ ] el código que aplica el refuerzo y la infusión (resta de almas y material, nivel + 1, la infusión
+        conserva el nivel);
+  - [ ] si imbuir cuesta lo mismo a cualquier nivel;
+  - [ ] qué opciones da el menú de cada herrero, si Lenigrast imbuye y qué desbloquea la bandera 102680 de McDuff;
+  - [ ] semántica de `ShopLineupParam +0x04/+0x08/+0x0c` y si 255 significa ilimitado;
+  - [ ] `WRP +0x50..+0x70` como reducciones de guardia y si la infusión del escudo las cambia;
+  - [ ] si el nivel cambia la durabilidad;
+  - [ ] `ARP +0x64`, `WSA +0x04`, `PlayerWeaponReinforceParam`, el tercer byte de la tabla `0x1410c3e10` y la
+        fila CAS 10;
+  - [ ] nombres de los mapas y de los enemigos de los drops;
+  - [ ] lotes por generador de mapa y tesoros colocados.
+- [ ] Sin confirmar en scythes.md (investigar):
+  - [ ] nombre de la categoría "Guadaña" en el menú;
+  - [ ] cómo clasifica el juego la Hoz Platinegra (hoz o hacha);
+  - [ ] desofuscar `FUN_14003c250` (lectura de WRP);
+  - [ ] `WRP+0xe8 = 0` de la Guadaña del deseo;
+  - [ ] filas sin nombre de WTP 150 (784000, 821000, 851000, 910000, 6410000);
+  - [ ] rareza de las armas.
+
+## Pendientes sin decisión del usuario (2026-11-09)
+- [ ] Actualizar y reiniciar QA Server SAM con el jar nuevo (arreglo del crash de zombies en
+      `SoulsPerception.Investigate` y cambios de hoguera). Necesita el OK del usuario.
+- [ ] Hoguera: decidir si sigue quitando veneno y fuego al descansar (la leche y el agua ya lo hacen en Minecraft).
+
 ## Inventado sin autorización (viola la regla 1; listado 2026-11-01)
 Comportamientos de juego que agregué sin sacarlos de DS2 y sin pedir permiso. Cada uno se reemplaza por lo de DS2
 cuando se descifre, o se quita, según lo que decida el usuario.

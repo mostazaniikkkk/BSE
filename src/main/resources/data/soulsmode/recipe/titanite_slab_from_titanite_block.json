@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "building",
+  "ingredients": [
+    {
+      "item": "soulsmode:titanite_block"
+    }
+  ],
+  "result": {
+    "id": "soulsmode:titanite_slab",
+    "count": 2
+  }
+}
