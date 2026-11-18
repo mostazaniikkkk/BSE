@@ -37,7 +37,9 @@ public class SoulItem extends Item {
 		if (level.isClientSide()) {
 			return InteractionResultHolder.pass(stack);
 		}
-		return player instanceof ServerPlayer serverPlayer && SoulsSoulItems.use(serverPlayer, hand)
+		// The giant souls ask first (SoulsUseCheck): their use starts from the client's YES.
+		return player instanceof ServerPlayer serverPlayer && dev.soulsmode.SoulsUseCheck.message(this) == 0
+				&& SoulsSoulItems.use(serverPlayer, hand)
 				? InteractionResultHolder.consume(stack) : InteractionResultHolder.pass(stack);
 	}
 

@@ -13,21 +13,15 @@ import ds2fs
 import ds2paths
 from icon16 import icon16
 
-# Mod item -> ItemParam +0x00 (icon id): hollowing.md, llama_adversidad.md, resins.md, soul_items.md, thrown_items.md.
+# Mod item -> ItemParam +0x00 (icon id), soul_items.md. Only the souls use DS2's icon (the user's rule, 2026-11-09);
+# every other item is pixel art (tools/item_sprites.py, tools/titanite_items.py).
 ICONS = {
-    'human_effigy': 60151000,
-    'bonfire_ascetic': 60527000,
-    'gold_pine_resin': 60250000,
-    'charcoal_pine_resin': 60260000,
-    'dark_pine_resin': 60270000,
-    'rotten_pine_resin': 60280000,
     'soul_of_a_lost_undead': 60630000,
     'large_soul_of_a_lost_undead': 60640000,
     'soul_of_a_nameless_soldier': 60650000,
     'large_soul_of_a_nameless_soldier': 60660000,
-    'lloyds_talisman': 60531000,
-    'firebomb': 60570000,
     'soul_of_a_giant': 50920000,
+    'soul_of_the_last_giant': 64000000,
 }
 
 

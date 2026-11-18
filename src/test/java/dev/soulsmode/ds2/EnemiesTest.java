@@ -11,8 +11,22 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class EnemiesTest {
 	private static final Enemies.Def HOLLOW = new Enemies.Def(320, 1240, 0, 1.47f, 317, new float[] {15, 30, 30, 30},
 			50, new float[] {80, 80, 80, 80, 80}, 1, 90, 1, List.of(), List.of(), 1, 2, 0.6f, 1.9f, 16, Map.of(), Map.of(),
-			"", "", "", null, false, null, 0.15f);
+			"", "", "", null, false, null, 0.15f, Enemies.Targets.DEFAULT);
 	private static final Enemies.Damage SLASH = new Enemies.Damage(new float[] {118, 0, 0, 0, 0}, 34, 1, 240);
+
+	@Test
+	void targetsParse() {
+		Enemies.Targets t = Enemies.Targets.parse(com.google.gson.JsonParser.parseString(
+				"{\"players\": \"darktwo:heide_target\", \"entities\": [\"#minecraft:zombies\", \"minecraft:skeleton\"]}")
+				.getAsJsonObject());
+		assertEquals(true, t.players());
+		assertEquals("darktwo:heide_target", t.playerPredicate().toString());
+		assertEquals(List.of("#minecraft:zombies", "minecraft:skeleton"), t.entities());
+		Enemies.Targets none = Enemies.Targets.parse(com.google.gson.JsonParser.parseString("{\"players\": false}")
+				.getAsJsonObject());
+		assertEquals(false, none.players());
+		assertEquals(List.of(), none.entities());
+	}
 
 	@Test
 	void hollowSoldierAgainstThePlayer() {

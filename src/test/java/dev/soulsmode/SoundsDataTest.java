@@ -76,19 +76,28 @@ class SoundsDataTest {
 				referenced.add(id);
 			}
 		}
+		// The death banner's sting (you_died.json, tools/re/you_died.py): a 2D menu sound, stereo like DS2's.
+		try (InputStream in = SoundsDataTest.class.getResourceAsStream("/data/soulsmode/ds2/you_died.json")) {
+			assertNotNull(in, "missing you_died.json");
+			String menu = "menu." + JsonParser.parseReader(new java.io.InputStreamReader(in, StandardCharsets.UTF_8))
+					.getAsJsonObject().get("sound").getAsString();
+			assertTrue(sounds.has(menu), "sounds.json lacks " + menu);
+			referenced.add(menu);
+		}
 		for (var entry : sounds.entrySet()) {
 			assertTrue(referenced.contains(entry.getKey()), "unused sounds.json entry " + entry.getKey());
 			for (JsonElement s : entry.getValue().getAsJsonObject().getAsJsonArray("sounds")) {
 				String name = s.getAsJsonObject().get("name").getAsString();
 				assertTrue(name.startsWith("soulsmode:"), name);
 				assertTrue(name.matches("[a-z0-9_.:/-]+"), name);
-				checkOgg("/assets/soulsmode/sounds/" + name.substring("soulsmode:".length()) + ".ogg");
+				checkOgg("/assets/soulsmode/sounds/" + name.substring("soulsmode:".length()) + ".ogg",
+						!entry.getKey().startsWith("menu."));
 			}
 		}
 	}
 
 	/** First Ogg page: "OggS", then the Vorbis identification header (0x01 "vorbis", version 0, channels = 1). */
-	private static void checkOgg(String path) throws IOException {
+	private static void checkOgg(String path, boolean mono) throws IOException {
 		try (InputStream in = SoundsDataTest.class.getResourceAsStream(path)) {
 			assertNotNull(in, "missing " + path);
 			byte[] head = in.readNBytes(64);
@@ -97,7 +106,9 @@ class SoundsDataTest {
 			int p = 27 + segments;
 			assertEquals(1, head[p], path);
 			assertEquals("vorbis", new String(head, p + 1, 6, StandardCharsets.ISO_8859_1), path);
-			assertEquals(1, head[p + 11], path + ": not mono");
+			if (mono) {
+				assertEquals(1, head[p + 11], path + ": not mono");
+			}
 		}
 	}
 }

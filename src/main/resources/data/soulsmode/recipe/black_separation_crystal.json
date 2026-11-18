@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {
+      "item": "minecraft:amethyst_shard"
+    },
+    {
+      "tag": "soulsmode:souls"
+    }
+  ],
+  "result": {
+    "count": 1,
+    "id": "soulsmode:black_separation_crystal"
+  }
+}

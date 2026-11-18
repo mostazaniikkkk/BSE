@@ -1,0 +1,8 @@
+{
+  "feature": "soulsmode:cave_ground_item",
+  "placement": [
+    {"type": "minecraft:rarity_filter", "chance": 32},
+    {"type": "minecraft:in_square"},
+    {"type": "minecraft:biome"}
+  ]
+}

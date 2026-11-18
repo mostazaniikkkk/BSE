@@ -35,6 +35,15 @@ public final class RollClient {
 	private static int ticks;
 	private static double dirX;
 	private static double dirZ;
+	/**
+	 * Latency compensation (the user's choice, 2026-11-10): the dodge plays at once on this client, computed as the
+	 * server does (SoulsRoll.onRequest: direction, equip load); the server's Start for it does not restart it, a
+	 * different one replaces it, none within {@link #PREDICT_TIMEOUT} ticks stops it.
+	 */
+	private static Dodge predicted;
+	private static int predictedTicks;
+	/** Design choice: one second without the server's Start means the press was refused. */
+	private static final int PREDICT_TIMEOUT = 20;
 
 	private RollClient() {
 	}
@@ -47,8 +56,22 @@ public final class RollClient {
 				return;
 			}
 			Dodge kind = Dodge.values()[payload.kind()];
+			if (player == context.client().player && predicted != null) {
+				boolean same = predicted == kind;
+				predicted = null;
+				if (same) {
+					return;
+				}
+			}
+			start(player, payload);
+		});
+	}
+
+	private static void start(AbstractClientPlayer player, RollPayloads.Start payload) {
+		{
+			Dodge kind = Dodge.values()[payload.kind()];
 			SoulsAnimations.play(player, SoulsMode.id(kind.animation()), false, payload.speed());
-			if (player == context.client().player) {
+			if (player == Minecraft.getInstance().player) {
 				AttackClient.cancel();
 				current = kind;
 				speed = payload.speed();
@@ -56,7 +79,34 @@ public final class RollClient {
 				dirX = payload.dx();
 				dirZ = payload.dz();
 			}
-		});
+		}
+	}
+
+	/** Starts locally the dodge the server will start (SoulsRoll.onRequest), with the synced equip load. */
+	private static boolean predict(LocalPlayer player, double[] dir) {
+		if (!StaminaHud.soulsMode() || StaminaHud.empty() || AttackClient.blocksDodge()
+				|| dev.soulsmode.client.anim.PlayerReactionClient.movementLocked()) {
+			return false;
+		}
+		float ratio = InventoryStats.loadRatio();
+		double length = Math.sqrt(dir[0] * dir[0] + dir[1] * dir[1]);
+		Dodge kind = Dodge.of(length > 1e-3, ratio);
+		double dx;
+		double dz;
+		if (length > 1e-3) {
+			dx = dir[0] / length;
+			dz = dir[1] / length;
+		} else {
+			double yaw = Math.toRadians(player.getYRot());
+			dx = Math.sin(yaw);
+			dz = -Math.cos(yaw);
+		}
+		float distance = kind.distance(ratio, dev.soulsmode.SoulsEquipLoad.ROWS);
+		start(player, new RollPayloads.Start(player.getId(), kind.ordinal(), (float) (dx * distance),
+				(float) (dz * distance), kind.speed(ratio, dev.soulsmode.SoulsEquipLoad.ROWS)));
+		predicted = kind;
+		predictedTicks = 0;
+		return true;
 	}
 
 	private static void tick(Minecraft client) {
@@ -66,9 +116,19 @@ public final class RollClient {
 		}
 		while (ROLL_KEY.consumeClick()) {
 			boolean locked = current != null && ticks / 20f * speed < current.rerollLock;
-			if (!locked && player.onGround() && !VictimClient.cannotAct()) {
+			if (player.onGround() && !VictimClient.cannotAct()) {
+				// Inside a lock the press still goes to the server: DS2's input buffer may keep it (SoulsInputBuffer).
 				double[] dir = inputDirection(player);
-				ClientPlayNetworking.send(new RollPayloads.Request((float) dir[0], (float) dir[1]));
+				boolean predictedNow = !locked && predict(player, dir);
+				ClientPlayNetworking.send(new RollPayloads.Request((float) dir[0], (float) dir[1], predictedNow));
+			}
+		}
+		if (predicted != null && ++predictedTicks > PREDICT_TIMEOUT) {
+			// The server refused the dodge: stop the predicted one.
+			predicted = null;
+			if (current != null) {
+				SoulsAnimations.stop(player);
+				current = null;
 			}
 		}
 		if (current == null) {

@@ -421,6 +421,12 @@ def animation(tae_id, motion_type, critical=False, kind=None):
         # TAE 1220 (FUN_14016cd70): the parry flag b8+0x550, raised once the event's elapsed fraction reaches
         # 1 - WeaponParam +0x74 of the weapon in that hand (parryRate).
         'parry': sorted([round(t0, 4), round(t1, 4)] for typ, t0, t1, _ in TAE.get(tae_id, []) if typ == 1220),
+        # TAE 111600 (DamageActionCtrl, c0+0xf4 |= 0x20): counter window; a hit taken inside is multiplied by the
+        # attacker's PDP +0x20 x its WeaponTypeParam +0x6c (FUN_140138d50; DarkTwo espadones.md section 11).
+        'counter': sorted([round(t0, 4), round(t1, 4)] for typ, t0, t1, _ in TAE.get(tae_id, []) if typ == 111600),
+        # TAE 2300 (FUN_140325880): fires the bullet slot param[0] of chr+0x230 +0x760 (espadones.md section 10).
+        'shots': sorted([round(t0, 4), struct.unpack_from('<i', TAE_DATA, po)[0]]
+                        for typ, t0, t1, po in TAE.get(tae_id, []) if typ == 2300),
         'regenBlock': regen_block(tae_id),
         # Morpheme AttackDuration track (userData 120, FUN_140368e70 drives chr.c0+0x54): a dodge started inside it
         # costs ChrCommonParam+0x3c (1.25) times more (FUN_140376770).
@@ -506,6 +512,26 @@ def anim_duration(tae_id):
     anim, _ = NODE[tae_id]
     path = glob.glob(os.path.join(ANIM_DIR, NAMES[anim].split('.')[0] + '.nsa'))[0]
     return struct.unpack_from('<f', open(path, 'rb').read(), 0x28)[0]
+
+
+def input_control():
+    """The input buffer's recording windows of every player animation (docs/research/attack.md "Búfer de entrada"):
+    nmb track InputControl (channel 80, userData 37 -> b8+0x4d8: every command) and InputControl_Attack (userData 42 ->
+    b8+0x4dc: attacks only), read by FUN_140368900. {taeId: {'all': [[s, e]...], 'attack': [[s, e]...]}}."""
+    out = {}
+    for tae_id, (anim, tracks) in NODE.items():
+        files = glob.glob(os.path.join(ANIM_DIR, NAMES[anim].split('.')[0] + '.nsa'))
+        if not files:
+            continue
+        duration = struct.unpack_from('<f', open(files[0], 'rb').read(), 0x28)[0]
+        spans = {'all': [], 'attack': []}
+        for name, _, ev in tracks:
+            key = {'InputControl': 'all', 'InputControl_Attack': 'attack'}.get(name.strip())
+            if key:
+                spans[key] += [[round(s * duration, 4), round((s + l) * duration, 4)] for s, l, _ in ev]
+        if spans['all'] or spans['attack']:
+            out[str(tae_id)] = {k: sorted(v) for k, v in spans.items()}
+    return out
 
 
 def backstab_victim(attacker_tae):
@@ -894,6 +920,8 @@ def main():
                  'powerStanceStance': {'right': struct.unpack_from('<I', T[weapon_type], 0x1c)[0],
                                        'left': struct.unpack_from('<I', T[weapon_type], 0x20)[0]},
                  'attack': attack_data(weapon_id),
+                 # WeaponTypeParam f32 +0x6c: the attacker's counter-hit factor (FUN_140138d50, A+0x80).
+                 'counterRate': round(struct.unpack_from('<f', T[weapon_type], 0x6c)[0], 4),
                  # Guard (docs/research/stamina.md, "Guardia"): stability = WeaponReinforceParam +0x74 (+4 per level;
                  # level 0) + WeaponTypeParam +0xd0 one-handed / +0xd4 two-handed (FUN_14034d7b0, no effects or lack).
                  'guardStability': [round(struct.unpack_from('<f', R[reinforce], 0x74)[0]
@@ -920,6 +948,11 @@ def main():
                  'weaponClass': W[weapon_id][0x15],
                  'enchantable': any(struct.unpack_from('<i', r, 0x14)[0] == weapon_id and r[0x50] & 2
                                     for r in ITEMS.values())}
+        # The weapon's own SpEffect (ItemParam +0x04 of the row whose +0x14 is this weapon, FUN_1401a6890; DarkTwo
+        # espadones.md section 12): reported, a built-in weapon with one would need its instructions decoded here.
+        own = [struct.unpack_from('<i', r, 0x04)[0] for r in ITEMS.values() if struct.unpack_from('<i', r, 0x14)[0] == weapon_id]
+        if any(e not in (-1, 0) for e in own):
+            print('%s: weapon SpEffect %s not exported' % (name, own), file=sys.stderr)
         for hand, (base, kinds) in HANDS.items():
             entry[hand] = {}
             for kind, k in kinds:
@@ -969,7 +1002,16 @@ def main():
                                      # Base stamina damage on guard of each hit slot: PlayerDamageParam u16 +0x24 (A+0x68 in
                                      # FUN_140139210).
                                      'staminaDamages': [struct.unpack_from('<H', PDP[i], 0x24)[0] if i else None
-                                                        for i in struct.unpack_from('<3I', row, 0x2c)]}
+                                                        for i in struct.unpack_from('<3I', row, 0x2c)],
+                                     # Counter-hit factor of each hit slot: PlayerDamageParam f32 +0x20, x the
+                                     # weapon's counterRate when the victim is in a TAE 111600 window (FUN_140138d50).
+                                     'counterRates': [round(struct.unpack_from('<f', PDP[i], 0x20)[0], 4) if i else None
+                                                      for i in struct.unpack_from('<3I', row, 0x2c)]}
+                pairs = struct.unpack_from('<6I', row, 0x38)
+                if any(pairs):
+                    # WeaponAttackMotionParam +0x38..+0x4c: (bullet, PDP) for bullet slots 0..2 (FUN_140392a60); no
+                    # built-in weapon has them and their bullet rows are not exported here.
+                    print('%s %s %s: WAMP bullets %s not exported' % (name, hand, kind, pairs), file=sys.stderr)
                 if motion_type == 13:
                     # Guard request (case 0x140394276 of FUN_140393c00; copied to b8 at 0x1403931ce, read by the CP
                     # updater 0x14035d82c): ctrl+0x30 -> b8+0x268 -> CP GuardSpeed, ctrl+0x34 -> b8+0x26c -> CP
@@ -1065,7 +1107,13 @@ def main():
                 'reinforceCost': reinforce_cost(struct.unpack_from('<I', r, 0x70)[0], max_level),
                 # Bleed resistance % (bleed.md section 2, FUN_14034dda0 [6]): ARP +0x24 at +0, +0x54 at the max level.
                 'bleedAbsorption': round(struct.unpack_from('<f', r, 0x24)[0] * 0.01, 5),
-                'bleedAbsorptionMax': round(struct.unpack_from('<f', r, 0x54)[0] * 0.01, 5)}
+                'bleedAbsorptionMax': round(struct.unpack_from('<f', r, 0x54)[0] * 0.01, 5),
+                # Petrification / curse resistance % (docs/research/petrification.md section 1.2, FUN_14034dda0 [8] /
+                # [9]): ARP +0x28 / +0x2c at +0, +0x58 / +0x5c at the max level.
+                'petrifyAbsorption': round(struct.unpack_from('<f', r, 0x28)[0] * 0.01, 5),
+                'petrifyAbsorptionMax': round(struct.unpack_from('<f', r, 0x58)[0] * 0.01, 5),
+                'curseAbsorption': round(struct.unpack_from('<f', r, 0x2c)[0] * 0.01, 5),
+                'curseAbsorptionMax': round(struct.unpack_from('<f', r, 0x5c)[0] * 0.01, 5)}
     out['armor'] = {name: [piece(base + i) for i in range(4)] for name, base in (
         ('naked', 11001100), ('leather', 11040100), ('chainmail', 17420100), ('iron', 11050100), ('gold', 15130100),
         ('diamond', 17240100), ('turtle', 11660100))}
@@ -1077,7 +1125,10 @@ def main():
         # fire +0x5c, lightning +0x60, dark +0x64.
         ('defStat', 0x80), ('absorbMagic', 0x58), ('absorbFire', 0x5c), ('absorbLightning', 0x60), ('absorbDark', 0x64),
         # Bleed resistance % of the stats (bleed.md section 2): PSPL f32 +0x48 of row floor((3 Adp + Fth) / 4).
-        ('absorbBleed', 0x48))}
+        ('absorbBleed', 0x48),
+        # Petrification / curse resistance % (petrification.md section 1.2): PSPL f32 +0x50 of row
+        # floor((3 Adp + Vgr) / 4), +0x54 of floor((3 Adp + Att) / 4).
+        ('absorbPetrify', 0x50), ('absorbCurse', 0x54))}
     # A parried attacker (player victim, c0001; docs/research/weapons.md "Riposte"): a00_16_1010 DmgParryBreak_Start
     # (StabControl 261, the riposte window, from the end of 262 to its end), the loop 1020 for DamageCtrlParam
     # 99933130 +0x18 = 2.0 s (reaction 9: the user's choice, not confirmed as the parry's), then 1030 End.
@@ -1103,9 +1154,34 @@ def main():
     # Firebomb (ItemParam 60570000 -> ItemTypeParam 1000 +0x10 = 110): a00_18_0110 ItemUseThrowHeavyItem; the bullet
     # (SpEffect 60570000 100120[00] -> BulletParam 60570000) at TAE 220000 (docs/research/thrown_items.md).
     out['firebomb'] = thrown_use(180110)
+    # Homeward Bone (ItemParam 60350000 -> ItemTypeParam 250 +0x10 = 210 -> nmb node 0x177b weight 210): a00_18_0080
+    # ItemUsePray; TAE 220000 applies SpEffect 60350000, the warp (docs/research/bonfire.md "Hueso de regreso").
+    out['homeward_bone'] = item_use(180080)
     out['torch'] = {'firstAdd': first, 'add': add, 'limit': limit, 'make': item_use(180220)}
     # Dodges have no cost event: the cost is charged on entering the Morpheme state (FUN_140328d10), but their TAE
     # blocks regen too. Roll a00_12_0020, backstep a00_11_0011.
+    # Input buffer (FUN_140368900): one command kept PlayerCommonParam row 0 +0x64 seconds (1.5), recorded inside these
+    # windows while its lock is on, replayed when the lock drops (docs/research/attack.md "Búfer de entrada").
+    out['inputBufferSeconds'] = round(struct.unpack_from('<f', params.load('PlayerCommonParam')[0], 0x64)[0], 4)
+    out['inputControl'] = input_control()
+    # Covenant ranks (docs/research/covenants.md): VowParam row = covenant id, u16 +0/+2/+4 = points for ranks 1/2/3
+    # (FUN_1403590c0 / FUN_140204270: rank = how many thresholds the points reach).
+    vow = params.load('VowParam')
+    out['vowThresholds'] = {str(k): list(struct.unpack_from('<3H', r, 0)) for k, r in vow.items() if 1 <= k <= 9}
+    # The level-up screen (docs/research/stats.md "Pantalla de subir nivel"): MenuStatsParam rows 1..99 (FUN_140358cf0),
+    # the u16 columns read by 0x14038c1f0 for the menu's display struct, and +0x38 f32 equip load.
+    msp = params.load('MenuStatsParam')
+    cols = {'stamina': 0x02, 'slots': 0x06, 'castSpeed': 0x08, 'atkStr': 0x0a, 'atkDex': 0x0c, 'bonusMagic': 0x0e,
+            'bonusFire': 0x10, 'bonusLightning': 0x12, 'bonusDark': 0x14, 'bonusPoison': 0x16, 'bonusBleed': 0x18,
+            'defPhysical': 0x1c, 'defMagic': 0x1e, 'defFire': 0x20, 'defLightning': 0x22, 'defDark': 0x24,
+            'resPoison': 0x26, 'resBleed': 0x28, 'resPetrify': 0x2c, 'resCurse': 0x2e, 'agility': 0x32}
+    out['menuStats'] = {k: [struct.unpack_from('<H', msp[i], o)[0] for i in range(1, 100)] for k, o in cols.items()}
+    out['menuStats']['equipLoad'] = [round(struct.unpack_from('<f', msp[i], 0x38)[0], 4) for i in range(1, 100)]
+    # ItemUseCheckDialogParam (FUN_14048c770; FUN_140500c40 picks the first condition i that holds, then asks msg[i]
+    # (common.fmg) with YES / NO = common 200 / 201, default NO, or uses at once if msg[i] = 0; docs/research/bonfire.md
+    # "Hueso de regreso"). Rows of 0x14 bytes: u8 cond[4] (0 never, 1 always, 2..4 network states), u32 msg[4].
+    out['itemUseCheck'] = {str(k): {'conditions': list(r[0:4]), 'messages': list(struct.unpack_from('<4I', r, 4))}
+                           for k, r in params.load('ItemUseCheckDialogParam').items() if k != 0}
     out['dodgeRegenBlock'] = {'roll': regen_block(120020), 'backstep': regen_block(110011),
                               # Load variants (docs/research/equipload.md): Tired 70-120 %, Failed > 120 %.
                               'roll_tired': regen_block(120030), 'roll_failed': regen_block(120040),

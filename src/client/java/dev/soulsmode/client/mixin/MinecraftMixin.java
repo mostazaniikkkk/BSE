@@ -28,6 +28,14 @@ public abstract class MinecraftMixin {
 		}
 	}
 
+	/** In Souls Mode the death screen waits for DS2's death banner (YouDiedClient). */
+	@Inject(method = "setScreen", at = @At("HEAD"), cancellable = true)
+	private void soulsmode$youDied(net.minecraft.client.gui.screens.Screen screen, CallbackInfo ci) {
+		if (dev.soulsmode.client.YouDiedClient.holdDeathScreen(screen)) {
+			ci.cancel();
+		}
+	}
+
 	@Inject(method = "startUseItem", at = @At("HEAD"), cancellable = true)
 	private void soulsmode$heavyAttack(CallbackInfo ci) {
 		if (AttackClient.onUseKey((Minecraft) (Object) this)) {

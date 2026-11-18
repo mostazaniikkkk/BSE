@@ -314,7 +314,8 @@ public final class SoulsMagic {
 		if (otherLeft && SoulsTorch.isHeld(player)) {
 			return false;
 		}
-		ResourceLocation id = SoulsWeapons.movesetFor(otherLeft ? player.getOffhandItem() : player.getMainHandItem());
+		ResourceLocation id = SoulsWeapons.movesetFor(otherLeft ? player.getOffhandItem() : player.getMainHandItem(),
+				otherLeft);
 		int weaponClass;
 		boolean enchantable;
 		Weapons.Def pack = SoulsContent.weapon(id);
@@ -553,7 +554,8 @@ public final class SoulsMagic {
 
 	/** The catalyst a hand holds, or null when that hand's weapon cannot cast anything. */
 	static ResourceLocation catalyst(ServerPlayer player, boolean leftHand) {
-		ResourceLocation id = SoulsWeapons.movesetFor(leftHand ? player.getOffhandItem() : player.getMainHandItem());
+		ResourceLocation id = SoulsWeapons.movesetFor(leftHand ? player.getOffhandItem() : player.getMainHandItem(),
+				leftHand);
 		int[] schools = castSchools(id);
 		for (int s : schools) {
 			if (s != 0) {

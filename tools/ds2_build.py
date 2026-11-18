@@ -11,10 +11,14 @@ Steps, in order (each script is in tools/re and documents where its data comes f
   player     the player's animations (ds2_anims.py)
   poise      poise.json (poise.py)
   sounds     DS2 sounds: .ogg, sounds.json, attack_sounds.json (sounds.py, uses the game's FMOD and ffmpeg)
+  menu       the death banner: textures, frames and sting (you_died.py, the game's FMOD and ffmpeg)
+  structures the covenant structure from DS2's map models (covenant_structures.py; reads the Minecraft client jar)
+             and the Way of Blue's Hush spell (spell_export.py)
   icons      item textures from the menu icons (icons.py)
   lang       language files: the mod's own strings plus DS2's menu texts (lang.py)
-  blocks     the titanite block texture from Minecraft's netherite block (titanite_block.py; reads the Minecraft client
-             jar Fabric Loom downloads, or MINECRAFT_JAR)
+  blocks     the titanite block texture from Minecraft's netherite block (titanite_block.py) and the incandescent
+             minerals' textures from Minecraft's ingots (incandescent_sprites.py); both read the Minecraft client
+             jar Fabric Loom downloads, or MINECRAFT_JAR
 
 The DS2 folder comes from --game, else the DS2_GAME environment variable, else tools/ds2_game.txt, else Steam's
 default folder. Requirements: Python 3.10+, pip install -r tools/requirements.txt, ffmpeg on the PATH (or FFMPEG).
@@ -29,7 +33,8 @@ import time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RE = os.path.join(ROOT, 'tools', 're')
-STEPS = ['extract', 'params', 'weapons', 'enemies', 'player', 'poise', 'sounds', 'icons', 'lang', 'blocks']
+STEPS = ['extract', 'params', 'weapons', 'enemies', 'player', 'poise', 'sounds', 'menu', 'icons', 'lang', 'blocks',
+         'structures']
 GAME_FILES = ['DarkSoulsII.exe', 'GameDataEbl.bhd', 'GameDataEbl.bdt', 'GameDataKeyCode.pem', 'enc_regulation.bnd.dcx',
               'fmodex64.dll', 'fmod_event64.dll']
 
@@ -124,12 +129,23 @@ def main():
             # One process per step: FMOD's event system cannot be created twice in one process.
             for cmd in ('extract', 'catalog', 'tae', 'decode', 'ogg', 'mod'):
                 run(env, 'sounds.py', cmd)
+        elif step == 'menu':
+            run(env, 'you_died.py')
+            run(env, 'status_hud.py')
         elif step == 'icons':
             run(env, 'icons.py', os.path.join(assets, 'textures', 'item'))
         elif step == 'lang':
             run(env, 'lang.py', 'build')
+        elif step == 'structures':
+            run(env, 'covenant_structures.py')
+            # The Way of Blue's rank 2 reward (SpellParam 31230000), shipped in BSE by the user's exception
+            # (docs/research/covenants.md).
+            spells = os.path.join(res, 'data', 'soulsmode', 'soulsmode', 'spell')
+            os.makedirs(spells, exist_ok=True)
+            run(env, 'spell_export.py', '31230000', os.path.join(spells, 'hush.json'))
         elif step == 'blocks':
             run(env, 'titanite_block.py')
+            run(env, 'incandescent_sprites.py')
         print('  done in %.0f s' % (time.time() - start), flush=True)
     print('All DS2 files are in', res, '- now: gradlew build')
 

@@ -229,3 +229,14 @@ Para el mod:
 - **Elemento 9 de `vt+0x1d8` = resistencia a maldición**: deducido por el índice, sin lector comprobado.
 - **El campo MSP `+0x30`** (display `+0x38`): no se vio en qué renglón sale.
 - **`FUN_1401ffcc0`**: qué ajusta en las stats efectivas antes de calcular la AGL (stats.md).
+
+## Revisión del QA: "el roll no tiene los frames de invulnerabilidad de DS2" (2026-11-10)
+- Los i-frames del mod son los de DS2 (TAE 110100 entero + la parte de 110300 que da la Agilidad, arriba). Rodada
+  normal (`a00_12_0020`): invulnerable de **0 a 0.133 s** (110100) más **0.1 + fracción × 0.467 s** de 110300; con
+  AGL 85 (índice 5, fracción 0.362) eso es **0–0.269 s**; con AGL 100 (0.662), 0–0.409 s; con AGL 120, 0–0.567 s.
+- **Lo que los rompía en servidores (del mod, no de DS2)**: el roll salía en la pantalla del jugador cuando volvía la
+  respuesta del servidor (un ping completo), pero el servidor contaba los i-frames desde que le llegaba el pedido
+  (medio ping antes). Con 150 ms de ping, casi la mitad de los i-frames de AGL 85 ya habían pasado cuando el roll se
+  empezaba a ver. **Corregido** (decisión del usuario, 2026-11-10): el cliente arranca el roll al apretar
+  (`RollClient.predict`, con la carga de equipo sincronizada) y el servidor lo fecha desde la pulsación
+  (`SoulsRoll.onRequest`, medio ping antes). Si el servidor lo rechaza (sin estamina, bloqueo), el cliente lo corta.

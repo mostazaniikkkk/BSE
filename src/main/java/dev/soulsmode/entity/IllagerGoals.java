@@ -1,12 +1,9 @@
 package dev.soulsmode.entity;
 
 import dev.soulsmode.SoulsIllagers;
-import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.entity.ai.goal.MeleeAttackGoal;
-import net.minecraft.world.entity.ai.util.DefaultRandomPos;
 import net.minecraft.world.entity.monster.Pillager;
-import net.minecraft.world.phys.Vec3;
 
 import java.util.EnumSet;
 
@@ -15,13 +12,19 @@ public final class IllagerGoals {
 	private IllagerGoals() {
 	}
 
-	/** Backs away from a Souls Mode target inside the crossbow range, so it can shoot again. */
+	/**
+	 * Backs away from a Souls Mode target inside the crossbow range while it keeps shooting. It strafes backwards like
+	 * vanilla's skeleton (RangedBowAttackGoal: strafe -0.5 when too close) and takes no goal flag, so vanilla's
+	 * RangedCrossbowAttackGoal keeps running and reloads: it only charges within its 8 blocks, and a goal holding MOVE
+	 * there stopped it after the first shot (bug 2026-11-17: "solo un disparo, no recargan").
+	 */
 	public static final class KeepDistance extends Goal {
+		private static final float BACK = -0.5f;
 		private final Pillager pillager;
 
 		public KeepDistance(Pillager pillager) {
 			this.pillager = pillager;
-			setFlags(EnumSet.of(Flag.MOVE));
+			setFlags(EnumSet.noneOf(Flag.class));
 		}
 
 		@Override
@@ -30,23 +33,22 @@ public final class IllagerGoals {
 		}
 
 		@Override
+		public boolean requiresUpdateEveryTick() {
+			return true;
+		}
+
+		@Override
 		public void tick() {
-			LivingEntity target = pillager.getTarget();
-			if (target == null) {
-				return;
-			}
-			pillager.getLookControl().setLookAt(target, 30, 30);
-			if (pillager.getNavigation().isDone()) {
-				Vec3 away = DefaultRandomPos.getPosAway(pillager, 12, 4, target.position());
-				if (away != null) {
-					pillager.getNavigation().moveTo(away.x, away.y, away.z, 1.0);
-				}
+			if (pillager.getTarget() != null) {
+				// The strafe is relative to the body's yaw: face the target first, as the skeleton's goal does.
+				pillager.getMoveControl().strafe(BACK, 0);
+				pillager.lookAt(pillager.getTarget(), 30, 30);
 			}
 		}
 
 		@Override
 		public void stop() {
-			pillager.getNavigation().stop();
+			pillager.getMoveControl().strafe(0, 0);
 		}
 	}
 

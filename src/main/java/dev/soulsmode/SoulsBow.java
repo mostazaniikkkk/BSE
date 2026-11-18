@@ -73,7 +73,7 @@ public final class SoulsBow {
 	/** The ranged weapon in a hand, or null. */
 	private static Bow ranged(ServerPlayer player, boolean left) {
 		return Bow.of(SoulsAttack.damageKey(SoulsWeapons.movesetFor(left ? player.getOffhandItem()
-				: player.getMainHandItem())));
+				: player.getMainHandItem(), left)));
 	}
 
 	/** The id of a ranged clip in an AttackPayloads.Start (SoulsAttack.itemUse resolves it). */
@@ -118,7 +118,7 @@ public final class SoulsBow {
 		}
 		// The bow one-handed (type 15): nothing, except its kick and jump (the fist's rows), through the normal path.
 		var moveset = SoulsWeapons.moveset(SoulsWeapons.movesetFor(request.leftHand() ? player.getOffhandItem()
-				: player.getMainHandItem())).orElse(null);
+				: player.getMainHandItem(), request.leftHand())).orElse(null);
 		var movement = moveset == null ? null : SoulsAttack.movementType(player, moveset, request.leftHand(), false, request);
 		return movement != dev.soulsmode.ds2.Moveset.Type.KICK && movement != dev.soulsmode.ds2.Moveset.Type.JUMP;
 	}
@@ -238,6 +238,8 @@ public final class SoulsBow {
 		if (ammo.isEmpty() && !player.getAbilities().instabuild) {
 			return;
 		}
+		// The shot is Minecraft's own arrow entity (the user's rule, 2026-11-11): its model, it sticks, it is picked up.
+		ItemStack shotAmmo = ammo.isEmpty() ? new ItemStack(Items.ARROW) : ammo.copyWithCount(1);
 		if (!player.getAbilities().instabuild) {
 			ammo.shrink(1);
 		}
@@ -268,9 +270,43 @@ public final class SoulsBow {
 		}
 		Vec3 from = pos;
 		Vec3 forward = dir;
-		SoulsBullet.emit(player.serverLevel(), player, shot.weapon.bullets().get(shot.data.bullet()), shot.weapon.bullets(),
-				() -> new SoulsBullet.Frame(from, forward), attack, shot.weapon.weapon, SoulsMagic.lockTarget(player), -1,
-				null);
+		var def = shot.weapon.bullets().get(shot.data.bullet());
+		net.minecraft.world.item.ArrowItem arrowItem = shotAmmo.getItem() instanceof net.minecraft.world.item.ArrowItem a ? a
+				: (net.minecraft.world.item.ArrowItem) Items.ARROW;
+		net.minecraft.world.entity.projectile.AbstractArrow arrow = arrowItem.createArrow(player.serverLevel(), shotAmmo, player,
+				held);
+		arrow.setPos(from.x, from.y, from.z);
+		// DS2's bullet speed (BulletParam +0x4c, m/s) in blocks per tick; Minecraft's arrow physics from there.
+		arrow.shoot(forward.x, forward.y, forward.z, def.speed() / 20f, 0);
+		arrow.setBaseDamage(0);
+		arrow.pickup = player.getAbilities().instabuild ? net.minecraft.world.entity.projectile.AbstractArrow.Pickup.CREATIVE_ONLY
+				: net.minecraft.world.entity.projectile.AbstractArrow.Pickup.ALLOWED;
+		SHOT_ARROWS.put(arrow, new ArrowShot(player, attack, shot.weapon.weapon, def));
+		player.serverLevel().addFreshEntity(arrow);
+	}
+
+	/** A bow / crossbow shot in flight: its DS2 attack values and bullet damage row (ArrowHitMixin). */
+	public record ArrowShot(ServerPlayer owner, float[] attack, String weapon, dev.soulsmode.ds2.Bullets.Def def) {
+	}
+
+	private static final Map<net.minecraft.world.entity.projectile.AbstractArrow, ArrowShot> SHOT_ARROWS =
+			new java.util.WeakHashMap<>();
+
+	/**
+	 * A shot arrow hit an entity: DS2's damage (the weapon's attack rating and the bullet's damage row, as the bullet
+	 * did) instead of Minecraft's. Returns false when the arrow is not a DS2 shot.
+	 */
+	public static boolean onArrowHit(net.minecraft.world.entity.projectile.AbstractArrow arrow,
+			net.minecraft.world.entity.Entity hit) {
+		ArrowShot s = SHOT_ARROWS.remove(arrow);
+		if (s == null || s.def().damage() == null) {
+			return false;
+		}
+		if (hit instanceof net.minecraft.world.entity.LivingEntity victim && hit != s.owner() && hit.isAttackable()) {
+			SoulsAttack.spellHit(s.owner(), victim, s.weapon(), s.attack(), s.def().damage().rate(),
+					s.def().damage().floor(), s.def().damage().knockBackSpeed());
+		}
+		return true;
 	}
 
 	public static void forget(ServerPlayer player) {

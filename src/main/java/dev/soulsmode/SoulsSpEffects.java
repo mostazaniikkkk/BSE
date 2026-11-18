@@ -129,13 +129,15 @@ public final class SoulsSpEffects {
 								.add(new Heal(amount, seconds, i.get("stopWhenFull").getAsBoolean()));
 					}
 				}
-				case "split", "attack", "defence", "movementRate", "statRate", "statAdd" -> {
+				case "split", "attack", "defence", "movementRate", "statRate", "statAdd", "statusFlag" -> {
 					if (victim instanceof ServerPlayer player) {
 						float seconds = i.get("duration").getAsFloat() * (timeScales ? timeRate : 1);
 						String type = i.get("type").getAsString();
-						int key = type.startsWith("stat") ? i.get("index").getAsInt()
+						int key = type.equals("statusFlag") ? i.get("bit").getAsInt()
+								: type.startsWith("stat") ? i.get("index").getAsInt()
 								: type.equals("movementRate") ? 0 : i.get("damageType").getAsInt();
-						float value = type.equals("movementRate") ? i.get("rate").getAsFloat() : i.get("value").getAsFloat();
+						float value = type.equals("statusFlag") ? 1
+								: type.equals("movementRate") ? i.get("rate").getAsFloat() : i.get("value").getAsFloat();
 						buffSlot(player, slot, effect, mode, serial).buffs.add(new Buff(type, key, value,
 								player.serverLevel().getGameTime() + Math.round(seconds * 20)));
 					}
@@ -242,6 +244,19 @@ public final class SoulsSpEffects {
 			}
 		}
 		return out;
+	}
+
+	/**
+	 * 1000[03]: bit {@code bit} of b8+0x4b8 is up while a status flag buff lasts. Bit 10 (Hush 31230000, Slumbering
+	 * Dragoncrest Ring) drops the "suppressible" sounds (docs/research/detection.md: walk, jog, dash, backstep, jump).
+	 */
+	public static boolean statusFlag(ServerPlayer player, int bit) {
+		for (Buff b : active(player, k -> true)) {
+			if (b.type().equals("statusFlag") && b.key() == bit) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/** b8+0x3bc index 26 (A+0x78 in FUN_1401373b0): the damage the player receives is multiplied by it. */

@@ -27,7 +27,8 @@ import java.util.WeakHashMap;
 /**
  * The penalty for breaking an active bonfire (the user's design, 2026-11-04): a Minecraft Giant with DS2's The Last
  * Giant (c3096, docs/research/last_giant.md) appears there, announced like an invasion, stays until someone kills it,
- * and drops a Soul of a Giant.
+ * and drops the Soul of the Last Giant (64010000, its DS2 lot ItemLotParam2_Other 309600). Since 2026-11-10 (the
+ * user's design) it comes every {@link #BONFIRES_PER_GIANT} active bonfires a player breaks, counted per player.
  * <p>
  * Its fight is ai309600 / ai309610's: in phase 1 (weapon mode 0) the table S2147483644 is checked every tick while the
  * approach S2147483645 runs; single attacks launch where it stands, combos follow their steps at each HitDuration end
@@ -52,6 +53,8 @@ public final class SoulsGiants {
 	private static final int IDLE_MODE1 = 7002;
 	private static final int WALK = 37001;
 	private static final int JOG = 47001;
+	/** Active bonfires a player breaks per Last Giant (the user's design, 2026-11-10): the 3rd, 6th, 9th... */
+	public static final int BONFIRES_PER_GIANT = 3;
 	/** Back leap reach when it is not called by a table row (afterAttack maxDistance). */
 	private static final float LEAP_REACH = 4.5f;
 
@@ -64,8 +67,16 @@ public final class SoulsGiants {
 		return entity instanceof Giant && entity.getTags().contains(TAG);
 	}
 
-	/** A player broke an active bonfire: the giant comes out next to it. */
+	/** A player broke an active bonfire: counted, and on every {@link #BONFIRES_PER_GIANT}th the giant comes out next to it. */
 	public static void onBonfireBroken(ServerPlayer player, BlockPos bonfire) {
+		int broken = player.getAttachedOrElse(SoulsAttachments.BONFIRES_BROKEN, 0) + 1;
+		player.setAttached(SoulsAttachments.BONFIRES_BROKEN, broken);
+		if (broken % BONFIRES_PER_GIANT == 0) {
+			spawn(player, bonfire);
+		}
+	}
+
+	private static void spawn(ServerPlayer player, BlockPos bonfire) {
 		ServerLevel level = player.serverLevel();
 		Giant giant = EntityType.GIANT.create(level);
 		if (giant == null) {
@@ -95,9 +106,9 @@ public final class SoulsGiants {
 		}
 	}
 
-	/** The giant died: its soul, and the invasion's end text. */
+	/** The giant died: its soul (DS2's Soul of the Last Giant), and the invasion's end text. */
 	public static void onDeath(Giant giant, Entity killer) {
-		giant.spawnAtLocation(new net.minecraft.world.item.ItemStack(dev.soulsmode.item.SoulsItems.SOUL_OF_A_GIANT));
+		giant.spawnAtLocation(new net.minecraft.world.item.ItemStack(dev.soulsmode.item.SoulsItems.SOUL_OF_THE_LAST_GIANT));
 		if (giant.level() instanceof ServerLevel level) {
 			for (ServerPlayer p : level.players()) {
 				if (p.distanceTo(giant) < 64) {

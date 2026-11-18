@@ -71,8 +71,12 @@ public final class SoulsAttack {
 		float hitBackSwept = -1;
 		/** SoulsSounds: animation time up to which the TAE sound events were played (-1: none yet). */
 		float soundsUntil = -1;
+		/** SoulsWeaponBullets: animation time up to which the TAE 2300 events were fired (-1: none yet). */
+		float shotsUntil = -1;
 		/** Attack_SwingSpeed inside the AttackSpeedControl 151 window (SwingSpeed); NaN until the first tick sets it. */
 		float swingRate = Float.NaN;
+		/** The whole clip's speed: SoulsWater.ATTACK_RATE for a weapon attack started in shallow water, else 1. */
+		float clipRate = 1;
 
 		Active(ResourceLocation movesetId, Moveset moveset, boolean leftHand, boolean weaponLeft, Moveset.Type type,
 				Attack attack, long startTick, float yaw) {
@@ -98,6 +102,19 @@ public final class SoulsAttack {
 
 	/** The dodge's left-hand windows (Attack2L / 2H) equal its right-hand ones, so one roll check covers both hands. */
 	public static void onRequest(ServerPlayer player, AttackPayloads.Request request) {
+		Object before = token(player);
+		handleRequest(player, request);
+		if (token(player) != before) {
+			SoulsInputBuffer.started(player);
+		}
+	}
+
+	/** The current action object, to tell whether a request started a new one (SoulsInputBuffer). */
+	static Object token(ServerPlayer player) {
+		return ACTIVE.get(player.getUUID());
+	}
+
+	private static void handleRequest(ServerPlayer player, AttackPayloads.Request request) {
 		if (isVictim(player)) {
 			return;
 		}
@@ -106,7 +123,12 @@ public final class SoulsAttack {
 			return;
 		}
 		if (!ENABLED || !SoulsGameMode.isActive(player) || !player.isAlive() || player.isUsingItem()
-				|| !player.onGround() || SoulsRoll.blocksAttack(player, request.heavy())) {
+				|| !player.onGround()) {
+			return;
+		}
+		if (SoulsRoll.blocksAttack(player, request.heavy())) {
+			// The dodge's CancelControl_Attack1L / 1H: kept if its InputControl(_Attack) records it (SoulsInputBuffer).
+			SoulsInputBuffer.attackRefused(player, request);
 			return;
 		}
 		// The damage reaction's CancelControl_AttackAll / _Guard (SoulsPoise).
@@ -133,9 +155,9 @@ public final class SoulsAttack {
 		}
 		if (active == null || active.over(seconds(player, active))) {
 			start(player, null, request, yaw);
-		} else if (!tryGuardAttack(player, active, request, yaw)) {
-			// A press during the lock is dropped: DS2's input buffering (InputControl) is not decoded yet.
-			tryFollow(player, active, request, yaw);
+		} else if (!tryGuardAttack(player, active, request, yaw) && !tryFollow(player, active, request, yaw)) {
+			// Refused by the current action's lock: DS2's input buffer may keep it (SoulsInputBuffer).
+			SoulsInputBuffer.attackRefused(player, request);
 		}
 	}
 
@@ -438,6 +460,47 @@ public final class SoulsAttack {
 		return false;
 	}
 
+	/**
+	 * A player plays a c0001 clip as a held victim (asked for by DarkTwo, 2026-11-16; docs/datapacks.md "Animación
+	 * forzada"): {@code /souls animate} and {@code bse.animate}. {@code key}: a TAE id (the mod's
+	 * {@code soulsmode:ds2_<tae>}) or a resource pack's animation id. {@code seconds}: how long it holds the player
+	 * (frozen in place, no attacks, dodges or items); NaN takes the clip's {@code duration} from the animation table
+	 * (BSE's or a datapack weapon file's {@code animations}). Nothing makes it invulnerable: a function or script can
+	 * kill the player at any time. Returns the ticks it holds, or -1 when the length is unknown.
+	 */
+	public static int animate(ServerPlayer player, String key, float seconds) {
+		if (Float.isNaN(seconds)) {
+			var a = dev.soulsmode.ds2.Weapons.animations().get(key);
+			if (a == null || !a.isJsonObject() || !a.getAsJsonObject().has("duration")) {
+				return -1;
+			}
+			seconds = a.getAsJsonObject().get("duration").getAsFloat();
+		}
+		if (!(seconds > 0) || !player.isAlive()) {
+			return -1;
+		}
+		String animation = dev.soulsmode.ds2.Weapons.animationName(key);
+		ACTIVE.remove(player.getUUID());
+		SoulsRoll.forget(player);
+		player.setSprinting(false);
+		long now = player.serverLevel().getGameTime();
+		int ticks = Math.round(seconds * 20);
+		HELD.put(player.getId(), new Held(player.getUUID(), player.position(), player.getYRot(), now, now + ticks,
+				now + ticks, java.util.List.of()));
+		broadcast(player, new dev.soulsmode.network.VictimPayload(player.getId(), animation, "", seconds, false, "", 0,
+				seconds, seconds));
+		return ticks;
+	}
+
+	/**
+	 * Plays {@code clip} on the player for every client, then {@code hold} (looping) from {@code holdAt} s, for
+	 * {@code total} s, without holding it on the server (a dead player: SoulsStatus's petrification death).
+	 */
+	public static void playClip(ServerPlayer player, String clip, String hold, float holdAt, float total) {
+		broadcast(player, new dev.soulsmode.network.VictimPayload(player.getId(), clip, hold, holdAt, true, "", 0,
+				total, total));
+	}
+
 	/** A player held as a critical's or a parry's victim cannot attack, dodge or use items until it can act again. */
 	public static boolean isVictim(ServerPlayer player) {
 		return HELD.containsKey(player.getId());
@@ -578,7 +641,10 @@ public final class SoulsAttack {
 				it.remove();
 				continue;
 			}
-			stunParticles(attackerLevel, victim, now);
+			// A forced clip (animate) holds the player by itself: no stun.
+			if (!held.attacker().equals(victim.getUUID())) {
+				stunParticles(attackerLevel, victim, now);
+			}
 			if (now >= held.freezeUntil()) {
 				continue;
 			}
@@ -882,8 +948,16 @@ public final class SoulsAttack {
 			player.setYBodyRot(yaw);
 			player.setYHeadRot(yaw);
 		}
+		// Latency compensation (the user's choice, 2026-11-10): a start the client already plays from the press is dated
+		// from the press, half the connection's round trip ago, so DS2's windows (the parry's TAE 1220...) line up with
+		// what the player saw and did. Only when the client predicted this same start from idle.
+		long startTick = player.serverLevel().getGameTime();
+		if (request.predicted() && current == null && !attack.guard() && type == Moveset.next(null, false, false,
+				request.heavy(), request.leftHand()) && !twoHanded) {
+			startTick -= Math.round(player.connection.latency() / 2f / 50f);
+		}
 		ACTIVE.put(player.getUUID(), new Active(movesetId, moveset, request.leftHand(), weaponLeft, type, attack,
-				player.serverLevel().getGameTime(), yaw));
+				startTick, yaw));
 		if (attack.guard()) {
 			sendGuard(player, movesetId, weaponLeft, twoHanded, type);
 		}
@@ -986,7 +1060,8 @@ public final class SoulsAttack {
 				}
 				active.hit.add(key(window, target));
 				damage(player, level, living, leftWeapon, rate[0], (int) rate[1], rate[2],
-						rate.length > 3 && !Float.isNaN(rate[3]) ? java.util.Arrays.copyOfRange(rate, 3, rate.length) : null);
+						rate.length > 3 && !Float.isNaN(rate[3]) ? java.util.Arrays.copyOfRange(rate, 3, rate.length) : null,
+						dev.soulsmode.ds2.PowerStance.counterRate(weapon, active.type, event.slot() % 5));
 			}
 		}
 	}
@@ -1040,29 +1115,36 @@ public final class SoulsAttack {
 			return SoulsTorch.MOVESET;
 		}
 		ItemStack stack = leftHand ? player.getOffhandItem() : player.getMainHandItem();
-		ResourceLocation id = SoulsWeapons.movesetFor(stack);
+		ResourceLocation id = SoulsWeapons.movesetFor(stack, leftHand);
 		return leftHand && !stack.isEmpty() && id.equals(SoulsWeapons.DEFAULT) ? null : id;
 	}
 
 	public static void tick(MinecraftServer server) {
 		tickHeld(server);
-		Iterator<Map.Entry<UUID, Active>> it = ACTIVE.entrySet().iterator();
-		while (it.hasNext()) {
-			Map.Entry<UUID, Active> entry = it.next();
-			ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
-			Active active = entry.getValue();
+		// A snapshot: a hit made below can start or stop another player's action (a parry, a critical, a guard break, a
+		// hit reaction), which changes ACTIVE while it is walked (crash 2026-11-16 23:11, ConcurrentModificationException).
+		// Each entry is changed only if it is still the action this pass read.
+		for (UUID id : new java.util.ArrayList<>(ACTIVE.keySet())) {
+			Active active = ACTIVE.get(id);
+			if (active == null) {
+				continue;
+			}
+			ServerPlayer player = server.getPlayerList().getPlayer(id);
 			if (player == null || !player.isAlive() || !SoulsGameMode.isActive(player)) {
-				it.remove();
+				ACTIVE.remove(id, active);
 				continue;
 			}
 			if (active.type == Moveset.Type.FALL && (player.isInWater() || player.isFallFlying())) {
-				it.remove();
+				ACTIVE.remove(id, active);
 				broadcast(player, new AttackPayloads.Stop(player.getId()));
 				continue;
 			}
 			if (active.type == Moveset.Type.FALL && player.onGround()) {
 				tickFall(player, active);
-				active = ACTIVE.get(player.getUUID());
+				active = ACTIVE.get(id);
+				if (active == null) {
+					continue;
+				}
 			}
 			float t = seconds(player, active);
 			if (active.type == Moveset.Type.CAST_PREPARE && active.cast != null && t >= active.attack.duration()) {
@@ -1074,7 +1156,7 @@ public final class SoulsAttack {
 				Active cast = new Active(active.movesetId, null, active.leftHand, active.weaponLeft, Moveset.Type.CAST,
 						active.cast.castAttack(), player.serverLevel().getGameTime(), player.getYRot());
 				cast.cast = active.cast;
-				entry.setValue(cast);
+				ACTIVE.replace(id, active, cast);
 				broadcast(player, new AttackPayloads.Start(player.getId(), active.movesetId, active.weaponLeft,
 						grip(player).twoHanded(), Moveset.Type.CAST.ordinal(), player.getYRot()));
 				continue;
@@ -1083,17 +1165,18 @@ public final class SoulsAttack {
 				active.bulletsFired = SoulsMagic.fire(player, active.cast, active.bulletsFired, t);
 			}
 			attackSounds(player, active, t);
+			weaponBullets(player, active, t);
 			if (active.over(t)) {
 				if (active.guardHeld != null) {
 					// The guard button is still held: back to the guard (it was requested every frame meanwhile).
 					Active guard = active.guardHeld;
-					entry.setValue(new Active(guard.movesetId, guard.moveset, guard.leftHand, guard.weaponLeft, guard.type,
-							guard.attack, player.serverLevel().getGameTime(), guard.yaw));
+					ACTIVE.replace(id, active, new Active(guard.movesetId, guard.moveset, guard.leftHand, guard.weaponLeft,
+							guard.type, guard.attack, player.serverLevel().getGameTime(), guard.yaw));
 					broadcast(player, new AttackPayloads.Start(player.getId(), guard.movesetId, guard.weaponLeft, false,
 							guard.type.ordinal(), player.getYRot()));
 					continue;
 				}
-				it.remove();
+				ACTIVE.remove(id, active);
 				continue;
 			}
 			// FUN_1403269e0 / FUN_14015c2d0: each hit event with a filled slot charges the attack's cost when it starts.
@@ -1122,6 +1205,32 @@ public final class SoulsAttack {
 				hit(player, active, window);
 			}
 		}
+	}
+
+	/** The attack's TAE 2300 bullet events up to {@code t} (SoulsWeaponBullets); spells fire theirs in SoulsMagic. */
+	private static void weaponBullets(ServerPlayer player, Active active, float t) {
+		if (active.cast != null || active.attack == null || !SoulsWeaponBullets.has(active.attack)) {
+			return;
+		}
+		float limit = Math.min(t, active.attack.duration());
+		if (limit <= active.shotsUntil) {
+			return;
+		}
+		float from = active.shotsUntil;
+		active.shotsUntil = limit;
+		ResourceLocation moveset = movesetFor(player, active.weaponLeft);
+		var stats = SoulsPlayer.data(player).map(SoulsData::toAttributes).orElse(null);
+		if (moveset == null || stats == null) {
+			return;
+		}
+		ItemStack weapon = active.weaponLeft ? player.getOffhandItem() : player.getMainHandItem();
+		String key = damageKey(moveset);
+		float[][] buffs = SoulsSpEffects.weaponBuffs(player, active.weaponLeft);
+		float[] attack = dev.soulsmode.ds2.Ds2Damage.attackRating(key, upgradeLevel(weapon), SoulsUpgrade.infusion(weapon),
+				stats, grip(player).twoHanded(), active.weaponLeft, -1, active.staminaLack, buffs[0], buffs[1],
+				SoulsWeaponEffects.statFactor(player, key));
+		scale(attack, itemFactor(weapon));
+		SoulsWeaponBullets.fire(player, active.attack, key, active.weaponLeft, from, limit, attack);
 	}
 
 	/**
@@ -1172,7 +1281,7 @@ public final class SoulsAttack {
 		double lz = Math.sin(yaw) * side;
 		net.minecraft.world.phys.Vec3 origin = player.position();
 		Contact contact = null;
-		for (dev.soulsmode.ds2.HitBack.Bone bone : dev.soulsmode.ds2.HitBack.bones(active.attack.taeId(), from, t)) {
+		for (dev.soulsmode.ds2.HitBack.Bone bone : dev.soulsmode.ds2.HitBack.bones(active.attack, from, t)) {
 			float[] base = new float[3];
 			float[] axis = new float[3];
 			for (int i = 0; i < 3; i++) {
@@ -1300,7 +1409,7 @@ public final class SoulsAttack {
 						&& active.hit.add(key(window, victim))) {
 					// The grabbed victim plays the throw, not a damage reaction.
 					damage(player, level, victim, false, active.attack.damageRate(window), active.attack.damageFloor(window),
-							Float.NaN, null);
+							Float.NaN, null, dev.soulsmode.ds2.AttackData.counterRate(active.attack, window));
 				}
 			}
 			return;
@@ -1327,7 +1436,8 @@ public final class SoulsAttack {
 			}
 			active.hit.add(key(window, target));
 			damage(player, level, living, active.weaponLeft, active.attack.damageRate(window),
-					active.attack.damageFloor(window), active.attack.reactionSpeed(window), active.attack.reactionMotion(window));
+					active.attack.damageFloor(window), active.attack.reactionSpeed(window), active.attack.reactionMotion(window),
+					dev.soulsmode.ds2.AttackData.counterRate(active.attack, window));
 		}
 	}
 
@@ -1345,11 +1455,12 @@ public final class SoulsAttack {
 	 * +6, netherite +10; items without a material +0. Enchantments are added on top as in vanilla.
 	 */
 	private static void damage(ServerPlayer player, ServerLevel level, LivingEntity target, boolean leftHand, float rate,
-			int floor, float reactionSpeed, float[] reactionMotion) {
+			int floor, float reactionSpeed, float[] reactionMotion, float counterRate) {
 		ItemStack weapon = leftHand ? SoulsTorch.isHeld(player) ? SoulsTorch.STACK : player.getOffhandItem()
 				: player.getMainHandItem();
 		DamageSource source = player.damageSources().playerAttack(player);
-		ResourceLocation moveset = leftHand && SoulsTorch.isHeld(player) ? SoulsTorch.MOVESET : SoulsWeapons.movesetFor(weapon);
+		ResourceLocation moveset = leftHand && SoulsTorch.isHeld(player) ? SoulsTorch.MOVESET
+				: SoulsWeapons.movesetFor(weapon, leftHand);
 		var stats = SoulsPlayer.data(player).map(SoulsData::toAttributes).orElse(null);
 		float amount;
 		if (stats != null) {
@@ -1358,7 +1469,8 @@ public final class SoulsAttack {
 			float[][] buffs = SoulsSpEffects.weaponBuffs(player, leftHand);
 			float[] attack = dev.soulsmode.ds2.Ds2Damage.attackRating(damageKey(moveset), upgradeLevel(weapon),
 					SoulsUpgrade.infusion(weapon), stats, grip(player).twoHanded(), leftHand, resinType,
-					current == null ? 0 : current.staminaLack, buffs[0], buffs[1]);
+					current == null ? 0 : current.staminaLack, buffs[0], buffs[1],
+					SoulsWeaponEffects.statFactor(player, damageKey(moveset)));
 			scale(attack, itemFactor(weapon));
 			if (resinType == 3 && target.fireImmune()) {
 				attack[3] = 0;
@@ -1387,12 +1499,12 @@ public final class SoulsAttack {
 						dev.soulsmode.ds2.Ds2Damage.weaponFactor(damageKey(moveset)), enemy.enemyDef())
 						/ (float) SoulsStats.DS2_HP_PER_HEALTH;
 			} else {
-				amount = dev.soulsmode.ds2.Ds2Damage.damageToEnemy(damageKey(moveset), attack, rate, floor)
-						/ (float) SoulsStats.DS2_HP_PER_HEALTH;
+				amount = mobDamage(damageKey(moveset), attack, rate, floor, target);
 			}
 		} else {
 			amount = (float) player.getAttributeValue(Attributes.ATTACK_DAMAGE) * rate;
 		}
+		amount *= counterFactor(target, counterRate, damageKey(moveset));
 		float base = amount;
 		amount = EnchantmentHelper.modifyDamage(level, weapon, target, source, amount);
 		if (stats == null && leftHand) {
@@ -1413,7 +1525,9 @@ public final class SoulsAttack {
 			if (current != null && current.attack != null) {
 				int window = current.attack.hitWindow(seconds(player, current));
 				int slot = window < 0 ? -1 : current.attack.hitSlot(window);
-				SoulsPoise.onHit(victim, dev.soulsmode.ds2.Poise.weaponHit(current.attack.taeId(), slot), player);
+				ResourceLocation swung = movesetFor(player, current.weaponLeft);
+				SoulsPoise.onHit(victim, dev.soulsmode.ds2.Poise.weaponHit(swung == null ? null : damageKey(swung),
+						current.attack, slot), player);
 			}
 		}
 		if (!leftHand) {
@@ -1431,6 +1545,61 @@ public final class SoulsAttack {
 		SoulsStick.onHit(player, weapon, leftHand);
 		player.causeFoodExhaustion(0.1f);
 	}
+
+	/**
+	 * Counter hit (docs/research/weapons.md "Contraataque"; DarkTwo espadones.md section 11): a victim inside one of its
+	 * own attack's TAE 111600 windows (DamageActionCtrl, c0+0xf4 |= 0x20) takes the hit times the attacker's
+	 * PlayerDamageParam +0x20 x its weapon's WeaponTypeParam +0x6c (FUN_140138d50). 1 outside, or without either value.
+	 * Only Souls Mode players have attack clips with these windows here.
+	 */
+	static float counterFactor(LivingEntity target, float counterRate, String attackerWeapon) {
+		float weapon = dev.soulsmode.ds2.Weapons.counterRate(attackerWeapon);
+		if (Float.isNaN(counterRate) || Float.isNaN(weapon) || !(target instanceof ServerPlayer victim)
+				|| !inCounterWindow(victim)) {
+			return 1;
+		}
+		return counterRate * weapon;
+	}
+
+	/** Whether a player is inside a TAE 111600 window of the attack it is playing. */
+	public static boolean inCounterWindow(ServerPlayer player) {
+		Active active = ACTIVE.get(player.getUUID());
+		if (active == null || active.attack == null) {
+			return false;
+		}
+		float t = seconds(player, active);
+		return !active.over(t) && dev.soulsmode.ds2.AttackData.counterWindow(active.attack, t);
+	}
+
+	/**
+	 * A hit on a Minecraft mob, in Minecraft health. Mobs in the tag {@code soulsmode:hollow_soldier} (the user's rule,
+	 * 2026-11-17: zombies and skeletons) stand for DS2's Hollow Soldier (EnemyParam 102000: 320 HP in NG, physical
+	 * defence +0x9c 317, absorption +0xa0..+0xac 15 / 30 / 30 / 30, docs/research/enemies.md): the enemy formula with
+	 * that defence and {@link SoulsStats#MOB_HP_PER_HEALTH} DS2 HP per health point, so a Longsword +0 (AR 158) kills a
+	 * zombie in 4 light hits, as it kills the Hollow Soldier in DS2. Every other mob keeps the earlier rule: zero DS2
+	 * defence at the player's scale (SoulsStats.DS2_HP_PER_HEALTH). Minecraft's armour applies on top.
+	 */
+	static float mobDamage(String weapon, float[] attack, float rate, int floor, Entity target) {
+		if (isHollowSoldier(target)) {
+			return dev.soulsmode.ds2.Enemies.damageToEnemy(attack, rate, floor,
+					dev.soulsmode.ds2.Ds2Damage.weaponFactor(weapon), MOB_DEFENCE, MOB_ABSORPTION)
+					/ (float) SoulsStats.MOB_HP_PER_HEALTH;
+		}
+		return dev.soulsmode.ds2.Ds2Damage.damageToEnemy(weapon, attack, rate, floor) / (float) SoulsStats.DS2_HP_PER_HEALTH;
+	}
+
+	/** Mobs that take player hits as DS2's Hollow Soldier (mobDamage); a datapack can change the tag. */
+	public static final net.minecraft.tags.TagKey<net.minecraft.world.entity.EntityType<?>> HOLLOW_SOLDIER =
+			net.minecraft.tags.TagKey.create(net.minecraft.core.registries.Registries.ENTITY_TYPE,
+					SoulsMode.id("hollow_soldier"));
+
+	public static boolean isHollowSoldier(Entity target) {
+		return target != null && target.getType().is(HOLLOW_SOLDIER);
+	}
+
+	/** The Hollow Soldier's physical defence and absorptions (EnemyParam 102000 +0x9c, +0xa0..+0xac). */
+	private static final float MOB_DEFENCE = 317;
+	private static final float[] MOB_ABSORPTION = {15, 30, 30, 30};
 
 	/** Player-vs-player hits: DS2 defence already counts the armour, so this type bypasses Minecraft's. */
 	private static final net.minecraft.resources.ResourceKey<net.minecraft.world.damagesource.DamageType> SOULS_ATTACK =
@@ -1482,7 +1651,7 @@ public final class SoulsAttack {
 					/ (float) SoulsStats.DS2_HP_PER_HEALTH;
 			source = soulsDamage(attacker);
 		} else {
-			amount = dev.soulsmode.ds2.Ds2Damage.damageToEnemy(key, attack, rate, floor) / (float) SoulsStats.DS2_HP_PER_HEALTH;
+			amount = mobDamage(key, attack, rate, floor, target);
 			source = attacker.damageSources().mobAttack(attacker);
 		}
 		return amount > 0 && target.hurt(source, amount);
@@ -1517,7 +1686,8 @@ public final class SoulsAttack {
 				: m.equals(net.minecraft.world.item.ArmorMaterials.TURTLE) ? "turtle" : null;
 	}
 
-	private static dev.soulsmode.ds2.Ds2Damage.Piece[] armorPieces(LivingEntity player) {
+	/** The DS2 armour of the four worn pieces (head, chest, arms = boots slot, legs); also the level-up preview. */
+	public static dev.soulsmode.ds2.Ds2Damage.Piece[] armorPieces(LivingEntity player) {
 		net.minecraft.world.entity.EquipmentSlot[] slots = {net.minecraft.world.entity.EquipmentSlot.HEAD,
 				net.minecraft.world.entity.EquipmentSlot.CHEST, net.minecraft.world.entity.EquipmentSlot.FEET,
 				net.minecraft.world.entity.EquipmentSlot.LEGS};
@@ -1566,8 +1736,7 @@ public final class SoulsAttack {
 					dev.soulsmode.ds2.Ds2Damage.weaponFactor(catalystKey), enemy.enemyDef())
 					/ (float) SoulsStats.DS2_HP_PER_HEALTH;
 		} else {
-			amount = dev.soulsmode.ds2.Ds2Damage.damageToEnemy(catalystKey, attack, rate, floor)
-					/ (float) SoulsStats.DS2_HP_PER_HEALTH;
+			amount = mobDamage(catalystKey, attack, rate, floor, target);
 		}
 		if (amount > 0 && target.hurt(source, amount)) {
 			player.setLastHurtMob(target);
@@ -1611,7 +1780,23 @@ public final class SoulsAttack {
 	 * The current action's clip for the poise checks (SoulsPoise): its TAE id, its time, and the weapons.json key of the
 	 * weapon swinging it (WeaponParam +0xb8 under TAE 111900); null without one.
 	 */
-	public record Clip(int taeId, float t, String weapon) {
+	public record Clip(int taeId, float t, String weapon, Attack attack) {
+		/** TAE 110500 / 110600 / 111900 at the clip's time: a datapack animation's own windows, else poise.json's. */
+		public boolean superArmor() {
+			var own = dev.soulsmode.ds2.AttackData.of(attack).superArmor();
+			return !own.isEmpty() ? dev.soulsmode.ds2.AttackData.inside(own, t) : dev.soulsmode.ds2.Poise.superArmor(taeId, t);
+		}
+
+		public boolean noReaction() {
+			var own = dev.soulsmode.ds2.AttackData.of(attack).noReaction();
+			return !own.isEmpty() ? dev.soulsmode.ds2.AttackData.inside(own, t) : dev.soulsmode.ds2.Poise.noReaction(taeId, t);
+		}
+
+		public boolean poiseFactorWindow() {
+			var own = dev.soulsmode.ds2.AttackData.of(attack).poiseFactor();
+			return !own.isEmpty() ? dev.soulsmode.ds2.AttackData.inside(own, t)
+					: dev.soulsmode.ds2.Poise.poiseFactorWindow(taeId, t);
+		}
 	}
 
 	public static Clip currentClip(ServerPlayer player) {
@@ -1624,7 +1809,7 @@ public final class SoulsAttack {
 			return null;
 		}
 		ResourceLocation weapon = movesetFor(player, active.weaponLeft);
-		return new Clip(active.attack.taeId(), t, weapon == null ? null : damageKey(weapon));
+		return new Clip(active.attack.taeId(), t, weapon == null ? null : damageKey(weapon), active.attack);
 	}
 
 	/** TAE 101100 of the current action: stamina does not regenerate. */
@@ -1722,6 +1907,12 @@ public final class SoulsAttack {
 		}
 		if (SoulsThrown.FIREBOMB_USE.equals(id)) {
 			return SoulsThrown.FIREBOMB.use();
+		}
+		if (SoulsHomeward.USE_ID.equals(id)) {
+			return SoulsHomeward.USE.use();
+		}
+		if (SoulsMultiplayItems.USE_ID.equals(id)) {
+			return SoulsMultiplayItems.USE.use();
 		}
 		Attack ranged = SoulsBow.clip(id);
 		if (ranged != null) {
@@ -1894,13 +2085,15 @@ public final class SoulsAttack {
 
 	/** The attack's clip time: real time since it started, slowed or sped up inside its swing window (SwingSpeed). */
 	private static float seconds(ServerPlayer player, Active active) {
-		float real = (player.serverLevel().getGameTime() - active.startTick) / 20f;
 		if (Float.isNaN(active.swingRate)) {
 			active.swingRate = swingRate(player, active);
-			if (active.swingRate != 1) {
-				broadcast(player, new AttackPayloads.Swing(player.getId(), active.swingRate));
+			// Weapon attacks started in shallow water run slower as a whole (SoulsWater, the user's rule).
+			active.clipRate = active.moveset != null && SoulsWater.shallow(player) ? SoulsWater.ATTACK_RATE : 1;
+			if (active.swingRate != 1 || active.clipRate != 1) {
+				broadcast(player, new AttackPayloads.Swing(player.getId(), active.swingRate, active.clipRate));
 			}
 		}
+		float real = (player.serverLevel().getGameTime() - active.startTick) / 20f * active.clipRate;
 		return dev.soulsmode.ds2.SwingSpeed.clipTime(active.attack, active.swingRate, real);
 	}
 

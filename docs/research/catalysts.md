@@ -274,6 +274,19 @@ Con `A+0x7c` = 1.0: factor de escuela `b8+0x48c..` = 1.0 (valor del ctor, sin an
 - **Cuándo se activa cada SpEffect** (equipado, al lanzar, condición de vida, duración `x`): no lo seguí. Sin ninguno,
   todos valen 1.0.
 
+## 7. Ítems del mod (0.3.1, pedido del usuario 2026-11-09)
+- `soulsmode:sorcerers_staff`, `soulsmode:clerics_chime`, `soulsmode:pyromancy_flame` (`SoulsItems`): atacan como
+  las entradas de `weapons.json` del mismo nombre (WeaponParam 3800000 / 4010000 / 5400000).
+- Fila de `ItemParam` con el mismo id: pila `+0x4a` = 1. Sprite en pixel art propio (`tools/item_sprites.py`, regla del
+  usuario: nunca el ícono de DS2 reducido), con la forma del ícono `IC_0003800000` / `IC_0004010000` / `IC_0005400000`. Nombre: `itemname` del mismo id. DS2 no tiene descripción corta para estas armas (`SimpleExplanation` vacío;
+  solo `DetailedExplanation`), así que el ítem no muestra descripción.
+- Peso = `WeaponParam +0x20` exacto: 2.0 / 0.5 / 0.0 (`SoulsEquipLoad`).
+- Requisitos (`WeaponParam +0x18..`): bastón Int 10, campana Fe 10, llama ninguno.
+- Recetas (diseño del usuario, no DS2; `data/soulsmode/recipe/`): bastón = pepita de hierro sobre un palo; campana = 2 lingotes de cobre sobre una campana, en columna; llama = Llama de la adversidad sobre un cuero. Sin botín. También en la pestaña de
+  combate del creativo. Sin hechizos de datapack no lanzan nada (el
+  ataque con catalizador sin hechizo es el lanzamiento fallido de DS2).
+- No portado: durabilidad (`WeaponParam +0x28`: 30 / 30 / 50); backlog, Simplificaciones.
+
 ## Sin confirmar
 - El interior de `FUN_1403b09d0` (se supone el mismo reparto que el cuerpo a cuerpo) y que el juego real muestre el
   daño oscuro de los hechizos de bastón/campana (no se puede ver en los params).

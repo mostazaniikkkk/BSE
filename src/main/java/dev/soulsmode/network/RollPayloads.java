@@ -11,11 +11,13 @@ public final class RollPayloads {
 	}
 
 	/** Client -> server: dodge input with the horizontal movement direction; (0, 0) means no direction. */
-	public record Request(float dx, float dz) implements CustomPacketPayload {
+	/** {@code predicted}: the client already plays the dodge from the press (latency compensation, SoulsRoll). */
+	public record Request(float dx, float dz, boolean predicted) implements CustomPacketPayload {
 		public static final Type<Request> TYPE = new Type<>(SoulsMode.id("roll_request"));
 		public static final StreamCodec<RegistryFriendlyByteBuf, Request> CODEC = StreamCodec.composite(
 				ByteBufCodecs.FLOAT, Request::dx,
 				ByteBufCodecs.FLOAT, Request::dz,
+				ByteBufCodecs.BOOL, Request::predicted,
 				Request::new);
 
 		@Override

@@ -276,7 +276,7 @@ public final class LockOn {
 	 * living entity except allies and armor stands.
 	 */
 	private static boolean isCandidate(LocalPlayer player, LivingEntity e) {
-		if (e == player || !e.isAlive() || e instanceof ArmorStand || e.isSpectator() || player.isAlliedTo(e)) {
+		if (e == player || !e.isAlive() || e instanceof ArmorStand || e.isSpectator() || ally(player, e)) {
 			return false;
 		}
 		LockOnData.Target values = e instanceof Player ? DATA.player() : DATA.mob();
@@ -287,6 +287,18 @@ public final class LockOn {
 			return false;
 		}
 		return player.position().distanceTo(e.position()) < DATA.listRadius();
+	}
+
+	/**
+	 * An ally is not a candidate: a tamed pet, or a player of the same team, unless that team allows friendly fire.
+	 * Servers that put every player in one team for name tags (SAM) leave friendly fire on, and those players can still
+	 * hurt each other, so they can be locked on (bug 2026-11-16).
+	 */
+	private static boolean ally(LocalPlayer player, LivingEntity e) {
+		if (!player.isAlliedTo(e)) {
+			return false;
+		}
+		return !(e instanceof Player && player.getTeam() != null && player.getTeam().isAllowFriendlyFire());
 	}
 
 	/** The point the lock aims at. DS2 uses the target's lock point (vfunc +0x50); here the middle of its box (a choice). */

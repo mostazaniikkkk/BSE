@@ -146,6 +146,8 @@ public final class SoulsPerception {
 	}
 
 	private static final Map<UUID, Body> BODIES = new HashMap<>();
+	/** Status bit 10 of b8+0x4b8 (Hush, Slumbering Dragoncrest Ring): suppressible sounds are not made. */
+	private static final int SILENT_BIT = 10;
 
 	/** The dodge just started: its clip's event 300 at its time on the animation clock. */
 	public static void onDodge(ServerPlayer player, Dodge kind, float speed) {
@@ -202,7 +204,9 @@ public final class SoulsPerception {
 				case TAKEOFF -> {
 					// a00_13_0020 JumpTakeoff, event 300 at 0 s (a jump attack plays its own clip instead).
 					if (!SoulsAttack.isActing(player)) {
-						emit(player, Perception.JUMP);
+						if (!SoulsSpEffects.statusFlag(player, SILENT_BIT)) {
+					emit(player, Perception.JUMP);
+				}
 					}
 				}
 				case ROLL_LANDING -> {
@@ -220,7 +224,9 @@ public final class SoulsPerception {
 		if (body.dodgeSound >= 0 && now >= body.dodgeSound) {
 			// Only if that dodge still plays (a new dodge or its end cancels it).
 			if (SoulsRoll.dodging(player) == body.dodge) {
-				emit(player, Perception.dodgeSound(body.dodge));
+				if (body.dodge.isRoll() || !SoulsSpEffects.statusFlag(player, SILENT_BIT)) {
+					emit(player, Perception.dodgeSound(body.dodge));
+				}
 			}
 			body.dodgeSound = -1;
 		}
@@ -235,7 +241,7 @@ public final class SoulsPerception {
 		}
 		if (gait != null) {
 			double t = (now - body.gaitStart) / 20.0;
-			if (gait.fires(t - 0.05, t)) {
+			if (gait.fires(t - 0.05, t) && !SoulsSpEffects.statusFlag(player, SILENT_BIT)) {
 				emit(player, gait.sound);
 			}
 		}

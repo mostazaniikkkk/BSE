@@ -33,8 +33,21 @@ public class SoulsMode implements ModInitializer {
 				net.minecraft.world.level.levelgen.GenerationStep.Decoration.VEGETAL_DECORATION,
 				net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.PLACED_FEATURE,
 						id("ground_item")));
+		// The same 1 in 32 chunks underground (GroundItemPlacer.Cave); structures: StructureStartMixin.
+		net.minecraft.core.Registry.register(net.minecraft.core.registries.BuiltInRegistries.FEATURE, id("cave_ground_item"),
+				new dev.soulsmode.worldgen.GroundItemPlacer.Cave(
+						net.minecraft.world.level.levelgen.feature.configurations.NoneFeatureConfiguration.CODEC));
+		net.fabricmc.fabric.api.biome.v1.BiomeModifications.addFeature(
+				net.fabricmc.fabric.api.biome.v1.BiomeSelectors.foundInOverworld(),
+				net.minecraft.world.level.levelgen.GenerationStep.Decoration.UNDERGROUND_DECORATION,
+				net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.PLACED_FEATURE,
+						id("cave_ground_item")));
 		dev.soulsmode.item.SoulsComponents.init();
 		dev.soulsmode.item.SoulsItems.init();
+		SoulsIncandescent.init();
+		SoulsStatues.init();
+		SoulsModeRecipe.init();
+		SoulsModeCondition.init();
 		dev.soulsmode.item.ReinforceRecipe.init();
 		SoulsTitanite.init();
 		dev.soulsmode.entity.SoulsEntities.init();
@@ -84,6 +97,15 @@ public class SoulsMode implements ModInitializer {
 				dev.soulsmode.network.ClassPayloads.Open.CODEC);
 		PayloadTypeRegistry.playC2S().register(dev.soulsmode.network.ClassPayloads.Choose.TYPE,
 				dev.soulsmode.network.ClassPayloads.Choose.CODEC);
+		PayloadTypeRegistry.playC2S().register(SoulsUseCheck.Confirm.TYPE, SoulsUseCheck.Confirm.CODEC);
+		PayloadTypeRegistry.playS2C().register(dev.soulsmode.network.CovenantPayloads.Open.TYPE,
+				dev.soulsmode.network.CovenantPayloads.Open.CODEC);
+		PayloadTypeRegistry.playC2S().register(dev.soulsmode.network.CovenantPayloads.Action.TYPE,
+				dev.soulsmode.network.CovenantPayloads.Action.CODEC);
+		ServerPlayNetworking.registerGlobalReceiver(dev.soulsmode.network.CovenantPayloads.Action.TYPE,
+				(payload, context) -> SoulsCovenantAltar.onAction(context.player(), payload));
+		ServerPlayNetworking.registerGlobalReceiver(SoulsUseCheck.Confirm.TYPE,
+				(payload, context) -> SoulsUseCheck.onConfirm(context.player(), payload));
 		ServerPlayNetworking.registerGlobalReceiver(dev.soulsmode.network.ClassPayloads.Choose.TYPE,
 				(payload, context) -> SoulsWorld.onChoose(context.player(), payload.index()));
 		PayloadTypeRegistry.playC2S().register(AttackPayloads.LockState.TYPE, AttackPayloads.LockState.CODEC);
@@ -153,6 +175,7 @@ public class SoulsMode implements ModInitializer {
 		// DS2 dodge i-frames (TAE 110100 and the Agility share of 110300, agility.md): hits are rejected.
 		ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) ->
 				!(entity instanceof ServerPlayer player && (SoulsRoll.isInvincible(player) || SoulsAttack.isInvulnerable(player)
+						|| SoulsHomeward.isInvulnerable(player)
 						|| SoulsAttack.parries(player, source)))
 						&& !SoulsAttack.isVictimInvulnerable(entity)
 						&& !SoulsAttack.isHeld(source.getEntity()));
@@ -173,6 +196,11 @@ public class SoulsMode implements ModInitializer {
 				SoulsPoise.forget(player);
 			}
 		});
+		// PvP invasions (SoulsPvp): an invasion death keeps the items; a spirit's death sends it home instead.
+		ServerLivingEntityEvents.ALLOW_DEATH.register((entity, source, amount) ->
+				!(entity instanceof ServerPlayer player) || SoulsPvp.onDeath(player, source));
+		ServerPlayerEvents.COPY_FROM.register(SoulsPvp::copyFrom);
+		ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> SoulsGameMode.syncTag(newPlayer));
 		ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> {
 			Bloodstains.onRespawn(newPlayer);
 			SoulsAttack.reset(newPlayer);
@@ -183,6 +211,7 @@ public class SoulsMode implements ModInitializer {
 			SoulsStats.apply(newPlayer);
 			// Respawning applies SpEffect 110000010 like resting (docs/research/bonfire.md).
 			SoulsMagic.restore(newPlayer, 100);
+			SoulsStatus.clear(newPlayer);
 			if (!alive) {
 				newPlayer.setHealth(newPlayer.getMaxHealth());
 			}
@@ -196,10 +225,23 @@ public class SoulsMode implements ModInitializer {
 		ServerTickEvents.END_SERVER_TICK.register(Bloodstains::tick);
 		ServerTickEvents.END_SERVER_TICK.register(SoulsStamina::tick);
 		ServerTickEvents.END_SERVER_TICK.register(SoulsAttack::tick);
+		ServerTickEvents.END_SERVER_TICK.register(SoulsIncandescent::tick);
 		ServerTickEvents.END_SERVER_TICK.register(SoulsHitReaction::tick);
 		ServerTickEvents.END_SERVER_TICK.register(SoulsPoise::tick);
 		ServerTickEvents.END_SERVER_TICK.register(SoulsBleed::tick);
+		ServerTickEvents.END_SERVER_TICK.register(SoulsStatus::tick);
+		ServerTickEvents.END_SERVER_TICK.register(SoulsStatues::tick);
 		ServerTickEvents.END_SERVER_TICK.register(SoulsThrown::tick);
+		ServerTickEvents.END_SERVER_TICK.register(SoulsHomeward::tick);
+		ServerTickEvents.END_SERVER_TICK.register(SoulsMultiplayItems::tick);
+		// Armour enchantments that change derived stats (SoulsRings: the Blue Seal's max HP).
+		net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents.EQUIPMENT_CHANGE.register(
+				(entity, slot, from, to) -> {
+					if (entity instanceof ServerPlayer player && slot.isArmor()) {
+						SoulsStats.apply(player);
+					}
+				});
+		ServerTickEvents.END_SERVER_TICK.register(SoulsInputBuffer::tick);
 		// Breaking an active bonfire: the giant comes (the user's design, SoulsGiants).
 		net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents.AFTER.register((world, player, pos, state, entity) -> {
 			if (player instanceof ServerPlayer serverPlayer && SoulsGameMode.isActive(serverPlayer)
@@ -246,6 +288,10 @@ public class SoulsMode implements ModInitializer {
 			SoulsAttack.forget(handler.getPlayer());
 			SoulsPoise.forget(handler.getPlayer());
 			SoulsThrown.forget(handler.getPlayer());
+			SoulsHomeward.forget(handler.getPlayer());
+			SoulsInputBuffer.forget(handler.getPlayer());
+			SoulsPvp.onDisconnect(handler.getPlayer());
+			SoulsMultiplayItems.forget(handler.getPlayer());
 			SoulsTorch.forget(handler.getPlayer());
 			SoulsGrip.forget(handler.getPlayer());
 			SoulsHollow.forget(handler.getPlayer());

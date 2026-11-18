@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    " B ",
+    "BSB",
+    " B "
+  ],
+  "key": {
+    "B": {"item": "minecraft:bone"},
+    "S": {"tag": "soulsmode:souls"}
+  },
+  "result": {"count": 4, "id": "soulsmode:alluring_skull"}
+}

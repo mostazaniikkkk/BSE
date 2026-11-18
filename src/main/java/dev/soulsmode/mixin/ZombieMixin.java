@@ -14,6 +14,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  */
 @Mixin(Zombie.class)
 public class ZombieMixin {
+	/** A petrified statue (dev.soulsmode.SoulsStatues) does not burn in the sun. */
+	@Inject(method = "isSunSensitive", at = @At("HEAD"), cancellable = true)
+	private void soulsmode$statueSun(CallbackInfoReturnable<Boolean> cir) {
+		if (dev.soulsmode.SoulsStatues.isPetrified((Zombie) (Object) this)) {
+			cir.setReturnValue(false);
+		}
+	}
+
 	@Inject(method = "doHurtTarget", at = @At("HEAD"), cancellable = true)
 	private void soulsmode$hollowSoldierAttack(Entity target, CallbackInfoReturnable<Boolean> cir) {
 		Zombie zombie = (Zombie) (Object) this;

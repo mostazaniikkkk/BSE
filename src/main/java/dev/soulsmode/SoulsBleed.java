@@ -106,7 +106,10 @@ public final class SoulsBleed {
 		if (LOG) {
 			SoulsMode.LOGGER.info("[BSE QA] bleed: burst on {} health {}", target.getType().toShortString(), target.getHealth());
 		}
-		target.hurt(SoulsAttack.soulsDamage(attacker), (float) (BURST_HP / SoulsStats.DS2_HP_PER_HEALTH));
+		// Zombies and skeletons take DS2 HP at the Hollow Soldier scale (SoulsAttack.mobDamage); the rest at the player's.
+		boolean mob = SoulsAttack.isHollowSoldier(target);
+		target.hurt(SoulsAttack.soulsDamage(attacker),
+				(float) (BURST_HP / (mob ? SoulsStats.MOB_HP_PER_HEALTH : SoulsStats.DS2_HP_PER_HEALTH)));
 		if (target.level() instanceof ServerLevel level) {
 			level.sendParticles(new DustParticleOptions(new Vector3f(0.7f, 0, 0), 1.5f), target.getX(),
 					target.getY() + target.getBbHeight() * 0.6, target.getZ(), 40, target.getBbWidth() * 0.4,
@@ -143,6 +146,8 @@ public final class SoulsBleed {
 					total += Ds2Damage.pieceBleed(SoulsUpgrade.armorSet(armor.getMaterial()), i, SoulsUpgrade.level(stack));
 				}
 			}
+			// Bloodbite Ring as an armour enchantment (SoulsRings): 100090[04] (0, 6, 15) per level.
+			total += SoulsRings.bleedAbsorption(victim);
 			return Math.max(0, Math.min(1, total));
 		}
 		if (target instanceof dev.soulsmode.entity.SoulsEnemy enemy && enemy.enemyDef() != null) {

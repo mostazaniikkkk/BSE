@@ -102,7 +102,7 @@ campana 11 · arco 8 · ballesta 9.
   - El SpEffect del uso (TAE 220000 a 1.7 / 1.667 s) no trae sonido: almas → `100130[01]` → SpEffect 930
     (`101130[00]`), efigie → `100050[02]` (soul_items.md, hollowing.md); `c000100_sfx.tae` no tiene eventos en
     180090 / 180190. Un sonido de "absorción" propio del objeto **no está establecido** (no hay campo de sonido
-    conocido en `ItemParam`).
+    conocido en `ItemParam`). **Corregido abajo ("Sonido del objeto"): sí está establecido.**
 - Test `SoundsDataTest`: cada sonido referido tiene entrada en `sounds.json` y cada archivo existe y es Ogg Vorbis mono.
 
 ## 7. Sin establecer / no implementado
@@ -130,3 +130,30 @@ campana 11 · arco 8 · ballesta 9.
 - Modo de reproducción de las definiciones (config `+0x00`: 0 / 3): sin decodificar; Minecraft elige por peso.
 - Uniformidad de los rangos continuos de capa: se tomó uniforme entre el mínimo y máximo medidos.
 - Enemigos (`frpg2_c1..c9.fev`, bancos `frpg2_c%04d.bnd`): no extraídos.
+
+
+## 8. Sonido del objeto (almas, efigie, calavera; investigación del 2026-11-10)
+Archivos en `D:\Reversing\DS2\out\itemsfx\` (`ffx.py`, `tree2.py`, `p38.py`, `a75.py`, `unbnd.py`, `sfxslot.c`,
+`sfxsound.c`, `hostsound.c`, escuchas `.wav` / `.ogg`).
+- **`ItemParam +0x08 / +0x0c / +0x10` son ids de FFX** (no modelos): `FUN_14032f750` los copia a
+  `b8+0x6f0/0x6f4/0x6f8`; el TAE **220200** (`FUN_14016b840`) lanza el de la ranura `params[1]` en la dummy
+  `params[0]` (`FUN_1404c7ca0` → `FXCGSfxCtrl`). Al terminar el evento solo se detiene la ranura 0.
+- Los FFX están en `Game\sfx\sfx9999.ffxbnd.dcx` (BND4, entradas zlib, formato DLsE). **La acción 75 del FFX es un
+  sonido**: su primer parámetro (tipo 68) es el id de un evento `s` (489 de 503 valores son eventos `s%09d` del FEV;
+  código: `FXCGDrawEntityHostSound`, `FUN_140a38740` → `FUN_140bef820` `SoundID(0, id)` → `"%c%09d"` con `s`). El
+  sonido sigue a la dummy.
+- | Uso | TAE 220200 | Dummy | FFX | Evento |
+  |---|---|---|---|---|
+  | Almas (ItemType 550: 6062xxxx..6072xxxx, 50920000, 64xxxxxx), clip 180090 | ranura 1, **1.6333 s** | 20 | `+0x0c` = 1051..1072 | **`s000000274`** (vol. 1.0) |
+  | Efigie humana 60151000, clip 180190 | ranura 1, **1.5 s** | 26 | 871 | **`s000000273`** (vol. 0.578) |
+  | Efigie humana | ranura 2, **1.5 s** | 26 | 872 | **`s000000872`** (vol. 0.397, −5 semitonos, muestra `s000000305`) |
+  | Calavera seductora: impacto (BulletParam 60530000 `+0xbc`) | — | bala | 845 | **`s000000845`** (`846_skull`) |
+  | Calavera seductora: señuelo (BulletParam 60530010 `+0x00`, 5 s) | — | bala | 846 | **`s000000846`** (`846_skull_loop`) |
+  Los demás FFX de esas ranuras (1050, 870, el vuelo 844, el Hueso de regreso 863) no tienen la acción 75.
+- **En el mod**: `sounds.py mod` agrega esos eventos (`ITEM_FFX_SOUNDS` a las animaciones 180090 / 180190 de
+  `attack_sounds.json`; `BULLET_FFX_SOUNDS` → `bulletSounds`). Las almas y la efigie suenan en el jugador a su tiempo;
+  la calavera suena en el impacto y el bucle del señuelo se repite cada 1.144 s (largo de la muestra) mientras dura.
+- **Sin confirmar**: que la acción 75 llegue exactamente a `FUN_140a38740` (vínculo por datos + el adaptador); en qué
+  momento del FFX suena (se toma al crearse); qué son el `f32 1.0` y el `i32` de la acción (0 en el impacto, 1 en el
+  señuelo: ¿bucle?); que FMOD repita `846_skull_loop` (se toma del nombre); los FFX "Append" de SotFS (+10000, sin
+  acción 75); si un `sfx%04d.ffxbnd` de mapa redefine esos ids.

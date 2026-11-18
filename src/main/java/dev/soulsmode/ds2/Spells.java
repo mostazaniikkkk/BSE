@@ -67,7 +67,8 @@ public final class Spells {
 
 	/** The SpEffect instructions the mod runs (docs/research/speffects.md); others are ignored (logged by the pack's export). */
 	private static final List<String> SP_EFFECT_TYPES = List.of("statusSelectBullet", "statMultiplier", "heal",
-			"durationScales", "split", "attack", "defence", "movementRate", "statRate", "statAdd", "statAddLarge");
+			"durationScales", "split", "attack", "defence", "movementRate", "statRate", "statAdd", "statAddLarge",
+			"statusFlag");
 
 	private static java.util.Map<Integer, List<JsonObject>> spEffects(JsonObject json) {
 		java.util.Map<Integer, List<JsonObject>> out = new java.util.HashMap<>();

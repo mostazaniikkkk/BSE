@@ -26,20 +26,36 @@ public final class GuardAttacks {
 	private GuardAttacks() {
 	}
 
+	/** Datapack weapons' guard attacks by full id (SoulsContent), replaced on reload. */
+	private static volatile Map<String, Data> pack = Map.of();
+
+	public static void setPack(Map<String, Data> weapons) {
+		pack = Map.copyOf(weapons);
+	}
+
+	/** A weapon entry's guard attacks ({@code guard_attack}, slots 57 / 58), or null. */
+	public static Data parse(JsonObject w, JsonObject animations) {
+		if (!w.has("guard_attack")) {
+			return null;
+		}
+		JsonObject hand = w.getAsJsonObject("guard_attack");
+		Attack light = slot(hand, "light", animations);
+		return light == null ? null : new Data(light, slot(hand, "light_combo", animations));
+	}
+
 	public static synchronized Data data(String weapon) {
+		Data p = weapon == null ? null : pack.get(weapon);
+		if (p != null) {
+			return p;
+		}
 		if (weapons == null) {
 			weapons = new HashMap<>();
 			JsonObject raw = Weapons.raw();
 			JsonObject animations = raw.getAsJsonObject("animations");
 			for (Map.Entry<String, JsonElement> e : raw.getAsJsonObject("weapons").entrySet()) {
-				JsonObject w = e.getValue().getAsJsonObject();
-				if (!w.has("guard_attack")) {
-					continue;
-				}
-				JsonObject hand = w.getAsJsonObject("guard_attack");
-				Attack light = slot(hand, "light", animations);
-				if (light != null) {
-					weapons.put(e.getKey(), new Data(light, slot(hand, "light_combo", animations)));
+				Data d = parse(e.getValue().getAsJsonObject(), animations);
+				if (d != null) {
+					weapons.put(e.getKey(), d);
 				}
 			}
 		}

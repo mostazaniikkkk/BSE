@@ -30,7 +30,11 @@
 		"IronGolemModelMixin",
 		"IllagerModelMixin",
 		"ZombieVillagerModelMixin",
-		"PlayerModelMixin"
+		"PlayerModelMixin",
+		"StoneRendererMixin",
+		"StoneLayerMixin",
+		"StoneItemLayersMixin",
+		"LocalPlayerStoneMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

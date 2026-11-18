@@ -270,6 +270,7 @@ OTHER = {
     'ds2_180090': (180090, False),            # a00_18_0090 ItemUseDeamonsSoul (soul items)
     'ds2_180100': (180100, False),            # a00_18_0100 ItemUseThrowOverhand (Lloyd's Talisman)
     'ds2_180110': (180110, False),            # a00_18_0110 ItemUseThrowHeavyItem (Firebomb)
+    'ds2_180080': (180080, False),            # a00_18_0080 ItemUsePray (Homeward Bone)
     'ds2_guard_break': (161010, False),
     # Hit reaction (docs/research/hit_reaction.md s.2 / s.9), for the NPC invader: a00_16_00x0..x3
     # DmgKnockBack{Light,Heavy}{SlashDown,SlashUp,ThrustDown,ThrustUp}_{FL,FR,BL,BR} (x = 1..4 Light, 5..8 Heavy).
@@ -309,7 +310,15 @@ OTHER = {
     'ds2_39110710': (39110710, False), 'ds2_39110720': (39110720, False), 'ds2_39110810': (39110810, False),
     'ds2_39110820': (39110820, False), 'ds2_39110910': (39110910, False), 'ds2_39110920': (39110920, False),
     'ds2_39130010': (39130010, False), 'ds2_39150010': (39150010, False),
+    # Fragrant Branch of Yore on a petrified statue (docs/research/petrification.md section 5): event action 15 ->
+    # EventActionCategory 230 -> a70_18_0010 PrayStand.
+    'ds2_70180010': (70180010, False),
+    # Petrification death (petrification.md section 3): SM_Die 0x1804, DieCategory 110 -> state 0x1835, one of
+    # a00_17_0710..0713 DieCurse_00..03 at random; the body keeps the last frame (_hold).
+    'ds2_170710': (170710, False), 'ds2_170711': (170711, False), 'ds2_170712': (170712, False),
+    'ds2_170713': (170713, False),
 }
+DIE_CURSE = (170710, 170711, 170712, 170713)
 
 # Locomotion clips that get the two-handed stance layered on (the stance SM 0x3bc sits inside BT_Move).
 LOCOMOTION = ['ds2_idle', 'ds2_walk', 'ds2_jog', 'ds2_dash', 'ds2_side_walk_forward', 'ds2_side_walk_back',
@@ -476,6 +485,8 @@ def main():
         anim = dump(rig, retarget, nsa_file(tae_id), name, loop, end=end)
         with open(os.path.join(out_dir, name + '.json'), 'w', encoding='utf8', newline=chr(10)) as f:
             json.dump(anim, f, separators=(',', ':'))
+        if tae_id in DIE_CURSE:
+            write_hold(out_dir, name, anim)
         if name.startswith('ds2_3') and str(tae_id).endswith('10'):
             # Spell Prepare: after it, state 0x1220 holds its last frame (SingleFrame node 0x1223 at 1.0) until the
             # cast (docs/research/casting.md section 6).

@@ -33,6 +33,13 @@ import java.util.WeakHashMap;
  * </ul>
  * Not from DS2 (the effects are adapted): the flight (Minecraft's thrown item, speed {@link #THROW_SPEED}) and the
  * zone's particles (a design choice to show its edge).
+ * <p>
+ * Alluring Skull (ItemParam 60530000, thrown_items.md "Calavera seductora"): DS2's throw (ItemTypeParam 900, the same
+ * clip as Lloyd's), its bullet's flight (10 m/s, 2 degrees up, {@link ThrownSoulsItem}) and its lure: when it breaks,
+ * BulletParam 60530010 becomes the new target ({@code FUN_1404477c0} -> {@code FUN_1404399b0}) of every enemy whose
+ * target is the thrower, for its 5.0 s, with no radius. Which enemies: the user's rule (2026-11-10), Minecraft's
+ * undead ({@code #minecraft:undead}), instead of DS2's LogicComParam +0x66. What a lured enemy does with that target
+ * is not traced in DS2: here it walks to it and does nothing else (no attacks); afterwards it targets as usual.
  */
 public final class SoulsThrown {
 	public static final ResourceLocation LLOYD_USE = SoulsMode.id("lloyds_talisman_use");
@@ -47,6 +54,12 @@ public final class SoulsThrown {
 	private static final float FIREBOMB_POWER = 1.5f;
 	/** User (2026-11-03): 10 % to set one block of the 3 x 3 on fire. */
 	private static final float FIREBOMB_FIRE_CHANCE = 0.10f;
+	/** BulletParam 60530000 +0x4c: 10 m/s, in blocks per tick. */
+	private static final float SKULL_SPEED = 0.5f;
+	/** BulletParam 60530000 +0x14: -0.0349 rad, 2 degrees above the aim. */
+	private static final float SKULL_PITCH = 2;
+	/** BulletParam 60530010 +0x48: the lure lasts 5.0 s. */
+	private static final int LURE_TICKS = 100;
 	/** Design choice: Minecraft's snowball throw speed. */
 	private static final float THROW_SPEED = 1.5f;
 
@@ -58,6 +71,17 @@ public final class SoulsThrown {
 	private record Zone(ServerLevel level, Vec3 center, long until, UUID owner) {
 	}
 
+	/** A skull's lure: where, until when. */
+	private record Lure(Vec3 at, long until) {
+	}
+
+	/** The lure's sound (BulletParam 60530010's FFX 846 -> s000000846, sample 846_skull_loop) while it lasts. */
+	private record LureSound(ServerLevel level, Vec3 at, long until) {
+	}
+
+	private static final List<LureSound> LURE_SOUNDS = new ArrayList<>();
+
+	private static final Map<net.minecraft.world.entity.Mob, Lure> LURED = new WeakHashMap<>();
 	private static final Map<UUID, Using> USING = new HashMap<>();
 	private static final List<Zone> ZONES = new ArrayList<>();
 	/** Entities inside a zone this tick (game time of the mark). */
@@ -76,7 +100,18 @@ public final class SoulsThrown {
 	/** User (2026-11-03, proposal A): 1 emerald for 4 firebombs, 8 uses; dungeon, mineshaft and outpost chests 30 %, 1-3. */
 	private static final float FIREBOMB_CHEST_CHANCE = 0.30f;
 
+	/** The user's rule (2026-11-10): the Cracked Red Eye Orb in every structure chest, 10 %. */
+	private static final float ORB_CHEST_CHANCE = 0.10f;
+
 	public static void init() {
+		net.fabricmc.fabric.api.loot.v3.LootTableEvents.MODIFY.register((key, builder, source, registries) -> {
+			if (source.isBuiltin() && key.location().getPath().startsWith("chests/")) {
+				builder.withPool(net.minecraft.world.level.storage.loot.LootPool.lootPool()
+						.add(net.minecraft.world.level.storage.loot.entries.LootItem.lootTableItem(SoulsItems.CRACKED_RED_EYE_ORB))
+						.when(net.minecraft.world.level.storage.loot.predicates.LootItemRandomChanceCondition
+								.randomChance(ORB_CHEST_CHANCE)));
+			}
+		});
 		var bombChests = java.util.Set.of(net.minecraft.world.level.storage.loot.BuiltInLootTables.SIMPLE_DUNGEON,
 				net.minecraft.world.level.storage.loot.BuiltInLootTables.ABANDONED_MINESHAFT,
 				net.minecraft.world.level.storage.loot.BuiltInLootTables.PILLAGER_OUTPOST);
@@ -135,6 +170,11 @@ public final class SoulsThrown {
 		return use(player, hand, SoulsItems.FIREBOMB, FIREBOMB_USE, FIREBOMB);
 	}
 
+	/** Using an Alluring Skull: ItemTypeParam 900, the same throw as Lloyd's Talisman (a00_18_0100, TAE 220000). */
+	public static boolean useSkull(ServerPlayer player, InteractionHand hand) {
+		return use(player, hand, SoulsItems.ALLURING_SKULL, LLOYD_USE, LLOYD);
+	}
+
 	private static boolean use(ServerPlayer player, InteractionHand hand, net.minecraft.world.item.Item item,
 			ResourceLocation id, dev.soulsmode.ds2.Weapons.Effigy data) {
 		if (!SoulsGameMode.isActive(player) || USING.containsKey(player.getUUID())
@@ -159,13 +199,27 @@ public final class SoulsThrown {
 			if (stack.is(using.item())) {
 				ThrownSoulsItem thrown = new ThrownSoulsItem(player.serverLevel(), player);
 				thrown.setItem(stack.copyWithCount(1));
-				thrown.shootFromRotation(player, player.getXRot(), player.getYRot(), 0, THROW_SPEED, 1);
+				if (stack.is(SoulsItems.ALLURING_SKULL)) {
+					// BulletParam +0x05 = 1: along the aim, 2 degrees up, exactly (no spread, no added run speed).
+					Vec3 dir = Vec3.directionFromRotation(player.getXRot() - SKULL_PITCH, player.getYRot());
+					thrown.shoot(dir.x, dir.y, dir.z, SKULL_SPEED, 0);
+				} else {
+					thrown.shootFromRotation(player, player.getXRot(), player.getYRot(), 0, THROW_SPEED, 1);
+				}
 				player.serverLevel().addFreshEntity(thrown);
 				stack.consume(1, player);
 			}
 			return true;
 		});
 		ZONES.removeIf(zone -> zone.level().getGameTime() >= zone.until() || zone.level().getServer() != server);
+		LURE_SOUNDS.removeIf(s -> s.level().getGameTime() >= s.until() || s.level().getServer() != server);
+		String loop = SoulsSounds.bullet("alluring_skull_lure");
+		int every = Math.max(1, Math.round(SoulsSounds.length(loop) * 20));
+		for (LureSound s : LURE_SOUNDS) {
+			if ((s.until() - s.level().getGameTime()) % every == LURE_TICKS % every) {
+				SoulsSounds.playAt(s.level(), s.at(), loop);
+			}
+		}
 		for (Zone zone : ZONES) {
 			long now = zone.level().getGameTime();
 			AABB box = AABB.ofSize(zone.center(), LLOYD_RADIUS * 2, LLOYD_RADIUS * 2, LLOYD_RADIUS * 2);
@@ -189,7 +243,9 @@ public final class SoulsThrown {
 		if (!(thrown.level() instanceof ServerLevel level)) {
 			return;
 		}
-		if (thrown.getItem().is(SoulsItems.LLOYDS_TALISMAN)) {
+		if (thrown.getItem().is(SoulsItems.ALLURING_SKULL)) {
+			lure(level, thrown.getOwner(), hit.getLocation());
+		} else if (thrown.getItem().is(SoulsItems.LLOYDS_TALISMAN)) {
 			UUID owner = thrown.getOwner() == null ? null : thrown.getOwner().getUUID();
 			ZONES.add(new Zone(level, hit.getLocation(), level.getGameTime() + LLOYD_SECONDS * 20L, owner));
 		} else if (thrown.getItem().is(SoulsItems.FIREBOMB)) {
@@ -212,6 +268,51 @@ public final class SoulsThrown {
 				}
 			}
 		}
+	}
+
+	/** The skull broke: every undead whose target is the thrower now goes for the skull (FUN_1404399b0, no radius). */
+	private static void lure(ServerLevel level, net.minecraft.world.entity.Entity owner, Vec3 at) {
+		if (owner == null) {
+			return;
+		}
+		Lure lure = new Lure(at, level.getGameTime() + LURE_TICKS);
+		// The impact FFX 845 -> s000000845; the lure's FFX 846 -> s000000846, a loop sample: replayed at its length
+		// while the lure lasts (that FMOD loops it is from the sample's name, not confirmed).
+		SoulsSounds.playAt(level, at, SoulsSounds.bullet("alluring_skull_impact"));
+		LURE_SOUNDS.add(new LureSound(level, at, lure.until()));
+		for (net.minecraft.world.entity.Mob mob : level.getEntities(net.minecraft.world.level.entity.EntityTypeTest.forClass(
+				net.minecraft.world.entity.Mob.class), m -> m.getTarget() == owner
+				&& m.getType().is(net.minecraft.tags.EntityTypeTags.UNDEAD))) {
+			mob.setTarget(null);
+			mob.getNavigation().stop();
+			LURED.put(mob, lure);
+		}
+		level.sendParticles(ParticleTypes.SOUL, at.x, at.y + 0.2, at.z, 12, 0.2, 0.2, 0.2, 0.02);
+	}
+
+	/**
+	 * A lured mob's AI step (MobReactionMixin): while the lure lasts it walks to the skull and runs nothing else (no
+	 * target, no goals). Returns false when it is not lured.
+	 */
+	public static boolean luredStep(net.minecraft.world.entity.Mob mob) {
+		Lure lure = LURED.get(mob);
+		if (lure == null) {
+			return false;
+		}
+		if (mob.level().getGameTime() >= lure.until() || !mob.isAlive()) {
+			LURED.remove(mob);
+			return false;
+		}
+		mob.setTarget(null);
+		if (mob.getNavigation().isDone() && mob.position().distanceTo(lure.at()) > 1.5) {
+			mob.getNavigation().moveTo(lure.at().x, lure.at().y, lure.at().z, 1.0);
+		}
+		mob.getLookControl().setLookAt(lure.at());
+		mob.getNavigation().tick();
+		mob.getMoveControl().tick();
+		mob.getLookControl().tick();
+		mob.getJumpControl().tick();
+		return true;
 	}
 
 	/** Whether the entity stands in a talisman zone now (this tick or the last one). */

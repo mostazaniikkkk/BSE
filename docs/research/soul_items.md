@@ -276,6 +276,25 @@ Largo (`\n` = salto de línea, `/` = línea en blanco):
 - Para comparar, el icono de 64010000 (`ItemParam +0x00` = 64000000, compartido con 64000000) es otro:
   `out\items\soul_of_the_last_giant_icon.png`, 58×91.
 
+# Alma del último gigante (Soul of the Last Giant)
+
+Lo suelta el Último Gigante del mod desde 0.5.0 (pedido del usuario, 2026-11-10; [last_giant.md](last_giant.md)).
+
+| Qué | Valor | Fuente |
+|---|---|---|
+| Nombre | "Soul of the Last Giant" / NeutralSpanish "Alma del último gigante" | `itemname` 64010000 |
+| Corto | "Acquire numerous souls, or perhaps..." / "Consigue almas infinitas o quizá..." | `SimpleExplanation` 64010000 |
+| Icono | **64000000** (compartido con el Alma del Perseguidor, 64000000) | `ItemParam 64010000 +0x00` |
+| SpEffect | 64010000 | `+0x04` |
+| Velocidad de uso | 0.7 | `+0x38` |
+| ItemTypeParam | 550 (misma animación que arriba, `a00_18_0090`) | `+0x40` |
+| Máximo | 99 | `+0x4a` |
+| Almas al usar | **6000** | `SpEffectActiveItem.emevd` 64010000 `(1 930 0 6000)` |
+| Lote del jefe | `ItemLotParam2_Other` fila 309600 `+0x2c` = 64010000 (por datos, formato sin decodificar) | §0 |
+
+Textura: `tools/re/icons.py` (`IC_0064000000.tpf`, recorte al alfa, 16×16), como las demás almas. Lo sin confirmar es
+lo mismo que en el Alma de un gigante (diálogo "¿Usar %s?", `ItemUse_Speed`).
+
 ## Sin confirmar (Alma de un gigante)
 - Lo mismo que las almas de arriba: `m` de `FUN_14022d950`, Soul Memory (`+0xf4`) probable, frame exacto en que entran
   las almas, `+0x4a` = 99 como máximo, cuándo se descuenta el objeto, qué habilita `ItemUseCancelControl`.

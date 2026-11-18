@@ -28,7 +28,9 @@ public abstract class PlayerMixin {
 	private float soulsmode$guard(float amount, DamageSource source) {
 		if ((Object) this instanceof ServerPlayer player && SoulsGameMode.isActive(player)) {
 			// b8+0x3bc index 26 (A+0x78): the victim factor every hit is multiplied by (speffects.md s.11.7).
-			return SoulsAttack.guarded(player, source, amount) * dev.soulsmode.SoulsSpEffects.damageTakenRate(player);
+			// Blue Tearstone Ring as an armour enchantment (SoulsRings): the same A+0x78 factor at <= 30 % HP.
+			return SoulsAttack.guarded(player, source, amount) * dev.soulsmode.SoulsSpEffects.damageTakenRate(player)
+					* dev.soulsmode.SoulsRings.damageTakenFactor(player);
 		}
 		return amount;
 	}

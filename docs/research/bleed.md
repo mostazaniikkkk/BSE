@@ -18,11 +18,11 @@ PSPL, `ArmorReinforceParam` ARP, `EnemyParam` EP, `EnemyCommonParam`, `ChrCommon
 |---|---|---|---|
 | 0 | 6 | 900100 (`0xdbc04`) | veneno: `872 (k 0 毒, 22 s, daño 9010, …)` |
 | **1** | **7** | **900200** (`0xdbc68`) | **sangrado** |
-| 2 | 8 | 900300 / 900301 (`0xdbccd − …`) | sin identificar |
-| 3 | 9 | 900400 (`0xdbd30`) | maldición (`872 k 3 呪`) |
+| 2 | 8 | 900300 / 900301 (`0xdbccd − …`) | rotura de equipo (`武器破壊`; petrification.md §7) |
+| 3 | 9 | 900400 (`0xdbd30`) | maldición (`872 k 3 呪`; petrification.md) |
 | 4 | 10 | 900500 (`0xdbd94`) | quemadura (`872 k 4 燃焼`) |
 | 5 | 11 | 900600 (`0xdbdf8`) | veneno tóxico (`872 k 8 猛毒`) |
-| 6 | 12 | 901100 (`0xdbfec`) | petrificación |
+| 6 | 12 | 901100 (`0xdbfec`) | petrificación (petrification.md) |
 
 - El arreglo del arma pasa a las ranuras en el constructor del golpe del jugador `FUN_140391fe0`: el bucle de
   `0x141b8ba3d` deja `valor[i]` en `[rbp − 0x58 + 4i]`; `0x141b8c134` guarda `valor[5]` en `r14+0x18` (ranura 6,

@@ -23,11 +23,28 @@ public final class SoulsGameMode {
 		// setGameMode clears the flag (see ServerPlayerMixin), so set it afterwards.
 		player.setGameMode(BASE_GAME_TYPE);
 		player.setAttached(SoulsAttachments.SOULS_MODE, true);
+		syncTag(player);
 		SoulsStats.apply(player);
+	}
+
+	/**
+	 * Scoreboard tag of Souls Mode players (asked for by DarkTwo, 2026-11-16; docs/datapacks.md): functions,
+	 * advancements and predicates can select {@code @a[tag=soulsmode.souls_mode]}. Kept in step with the mode on enter,
+	 * leave, join and respawn.
+	 */
+	public static final String TAG = "soulsmode.souls_mode";
+
+	public static void syncTag(ServerPlayer player) {
+		if (isActive(player)) {
+			player.addTag(TAG);
+		} else {
+			player.removeTag(TAG);
+		}
 	}
 
 	/** Moves players who entered Souls Mode on an older base game type onto the current one. */
 	public static void updateBase(ServerPlayer player) {
+		syncTag(player);
 		if (isActive(player) && player.gameMode.getGameModeForPlayer() != BASE_GAME_TYPE) {
 			enter(player);
 		}
@@ -37,5 +54,6 @@ public final class SoulsGameMode {
 		if (player.removeAttached(SoulsAttachments.SOULS_MODE) != null) {
 			SoulsStats.apply(player);
 		}
+		syncTag(player);
 	}
 }

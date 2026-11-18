@@ -27,6 +27,7 @@ Usage:
 """
 import ds2paths  # noqa: E402
 import ctypes as C
+import wave
 import json
 import os
 import struct
@@ -420,6 +421,15 @@ OUT_SOUNDS = os.path.join(MOD, 'assets', 'soulsmode', 'sounds')
 OUT_SOUNDS_JSON = os.path.join(MOD, 'assets', 'soulsmode', 'sounds.json')
 SWING_BASE = 6000
 ITEM_USE_ARMOR = (180090, 180190)  # a00_18_0090 ItemUseDeamonsSoul (soul items), a00_18_0190 ItemUseAbsorb (effigy)
+# The item's own sound (docs/research/sounds.md "Sonido del objeto"): ItemParam +0x08/+0x0c/+0x10 are FFX ids that TAE
+# 220200 starts at a dummy (slot = param 1, FUN_14016b840 -> FXCGSfxCtrl); the FFX (Game\sfx\sfx9999.ffxbnd.dcx)
+# action 75 plays the s-event of its first parameter (FXCGDrawEntityHostSound, FUN_140bef820). Soul items (ItemType 550)
+# slot 1 = FFX 1051..1072 -> s000000274 at 1.6333 s; Human Effigy 60151000 slot 1 = FFX 871 -> s000000273 and slot 2 =
+# FFX 872 -> s000000872, both at 1.5 s. {TAE id: [(start s, event)]}.
+ITEM_FFX_SOUNDS = {180090: [(1.6333, 's000000274')], 180190: [(1.5, 's000000273'), (1.5, 's000000872')]}
+# Bullet SFX with a sound (same FFX action 75): Alluring Skull BulletParam 60530000 +0xbc (impact) = FFX 845 ->
+# s000000845, its child 60530010 +0x00 = FFX 846 -> s000000846 (sample 846_skull_loop). The flight FFX 844 has none.
+BULLET_FFX_SOUNDS = {'alluring_skull_impact': 's000000845', 'alluring_skull_lure': 's000000846'}
 ARMOR_SETS = (('naked', 11001100), ('leather', 11040100), ('chainmail', 17420100), ('iron', 11050100),
               ('gold', 15130100), ('diamond', 17240100), ('turtle', 11660100))  # FUN_1404a5c30: id + 6000 + 10 x WeaponTypeParam +0x37 (types 1..10; 11 = +110 and a 2nd sound)
 
@@ -559,8 +569,15 @@ def mod():
                 why = 'variant' if e['variant'] else 'voice' if e['voice_sex'] else 'ground' if e['ground'] \
                     else 'cond' if e['cond'] else 'no event'
                 skipped[why] = skipped.get(why, 0) + 1
+        for t, name in ITEM_FFX_SOUNDS.get(int(key), []):
+            if playable(name):
+                rows.append({'t': t, 'event': name})
+                needed.add(name)
         if rows:
+            rows.sort(key=lambda r: r['t'])
             anims[key] = rows
+    bullets = {k: n for k, n in BULLET_FFX_SOUNDS.items() if playable(n)}
+    needed.update(bullets.values())
     swings = {r['swing'] for rows in anims.values() for r in rows if 'swing' in r}
     for t in set(swing_type.values()):
         for s in swings:
@@ -602,13 +619,21 @@ def mod():
             sounds_json[sid] = {'sounds': entries}
             layers.append({'sound': sid, 'sounddef': sd, 'pitchSpread': round((lm['pitch'][1] - lm['pitch'][0]) / 2, 4),
                            'volume': [round(lm['volume'][0], 4), round(lm['volume'][1], 4)]})
-        events[name] = {'volume': round(m['volume'], 4), 'volumeRandomization': round(m['vr'], 4),
+        first = D[next(iter(m['layers']))]['waves'][0]
+        src = os.path.join(STAGE, 'wav', first['bank'], first['sample'] + '.wav')
+        with wave.open(src) as wf:
+            length = wf.getnframes() / wf.getframerate()
+        events[name] = {'length': round(length, 4), 'volume': round(m['volume'], 4), 'volumeRandomization': round(m['vr'], 4),
                         'pitchSteps': int(round(m['n'])), 'range': int(round(m['max_distance'])), 'layers': layers}
     data = {'source': 'tools/re/sounds.py mod (docs/research/sounds.md): c000100_snd.tae events 201/202 of the '
                       'weapons.json animations, frpg2.fev events measured in the game\'s FMOD Ex 4.44.50',
             'swingBase': SWING_BASE, 'swingType': swing_type, 'armorSound': armor_sets, 'animations': anims,
+            'bulletSounds': bullets,
             'events': events}
     json.dump(data, open(OUT_DATA, 'w'), indent=1)
+    # Entries of other exporters (you_died.py "menu.*") stay.
+    if os.path.exists(OUT_SOUNDS_JSON):
+        sounds_json.update({k: v for k, v in json.load(open(OUT_SOUNDS_JSON)).items() if k.startswith('menu.')})
     json.dump(sounds_json, open(OUT_SOUNDS_JSON, 'w'), indent=1)
     print(len(anims), 'animations,', len(events), 'events,', len(files), 'files; 201 left out:', skipped)
 

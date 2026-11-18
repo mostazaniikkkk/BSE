@@ -47,20 +47,24 @@ src/main/resources/assets/soulsmode/enemy_animations/
 src/main/resources/assets/soulsmode/sounds/ds2/
 src/main/resources/assets/soulsmode/sounds.json
 src/main/resources/assets/soulsmode/lang/
-src/main/resources/assets/soulsmode/textures/item/human_effigy.png
-src/main/resources/assets/soulsmode/textures/item/bonfire_ascetic.png
-src/main/resources/assets/soulsmode/textures/item/gold_pine_resin.png
-src/main/resources/assets/soulsmode/textures/item/charcoal_pine_resin.png
-src/main/resources/assets/soulsmode/textures/item/dark_pine_resin.png
-src/main/resources/assets/soulsmode/textures/item/rotten_pine_resin.png
 src/main/resources/assets/soulsmode/textures/item/soul_of_a_lost_undead.png
 src/main/resources/assets/soulsmode/textures/item/large_soul_of_a_lost_undead.png
 src/main/resources/assets/soulsmode/textures/item/soul_of_a_nameless_soldier.png
 src/main/resources/assets/soulsmode/textures/item/large_soul_of_a_nameless_soldier.png
-src/main/resources/assets/soulsmode/textures/item/lloyds_talisman.png
-src/main/resources/assets/soulsmode/textures/item/firebomb.png
 src/main/resources/assets/soulsmode/textures/item/soul_of_a_giant.png
+src/main/resources/assets/soulsmode/textures/item/soul_of_the_last_giant.png
+src/main/resources/assets/soulsmode/textures/gui/you_died_en.png
+src/main/resources/assets/soulsmode/textures/gui/you_died_es.png
+src/main/resources/assets/soulsmode/textures/gui/you_died_band.png
+src/main/resources/assets/soulsmode/textures/gui/status/
+src/main/resources/assets/soulsmode/sounds/ds2_menu/
+src/main/resources/data/soulsmode/structure/covenant/
+src/main/resources/data/soulsmode/soulsmode/spell/
+src/main/resources/data/soulsmode/worldgen/structure/covenant/
+src/main/resources/data/soulsmode/worldgen/template_pool/covenant/
+src/main/resources/data/soulsmode/worldgen/structure_set/covenant/
 src/main/resources/assets/soulsmode/textures/block/titanite_block.png
+src/main/resources/assets/soulsmode/textures/item/incandescent_*.png
 
 # local runs
 run/

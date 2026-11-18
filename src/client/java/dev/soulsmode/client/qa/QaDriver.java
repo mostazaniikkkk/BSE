@@ -50,6 +50,52 @@ public final class QaDriver {
 			});
 			return;
 		}
+		if ("idle".equals(System.getProperty("soulsmode.qa"))) {
+			// A connected player for server-side QA scripts (tools/qa/*_setup.js): READY, then stays for 45 s.
+			int[] t = {0};
+			ClientTickEvents.END_CLIENT_TICK.register(mc -> {
+				if (mc.player == null) {
+					return;
+				}
+				if (mc.player.isDeadOrDying()) {
+					mc.player.respawn();
+				}
+				if (mc.screen instanceof net.minecraft.client.gui.screens.PauseScreen) {
+					mc.setScreen(null);
+				}
+				if (++t[0] % 40 == 0 && t[0] < 200) {
+					log("READY");
+				}
+				if (t[0] > 900) {
+					mc.stop();
+				}
+			});
+			return;
+		}
+		if ("petrify".equals(System.getProperty("soulsmode.qa"))) {
+			ClientTickEvents.END_CLIENT_TICK.register(PetrifyQa::tick);
+			return;
+		}
+		if ("grip".equals(System.getProperty("soulsmode.qa"))) {
+			ClientTickEvents.END_CLIENT_TICK.register(GripQa::tick);
+			return;
+		}
+		if ("water".equals(System.getProperty("soulsmode.qa"))) {
+			ClientTickEvents.END_CLIENT_TICK.register(WaterQa::tick);
+			return;
+		}
+		if ("animate".equals(System.getProperty("soulsmode.qa"))) {
+			ClientTickEvents.END_CLIENT_TICK.register(AnimateQa::tick);
+			return;
+		}
+		if ("furnace".equals(System.getProperty("soulsmode.qa"))) {
+			ClientTickEvents.END_CLIENT_TICK.register(FurnaceQa::tick);
+			return;
+		}
+		if ("arrow".equals(System.getProperty("soulsmode.qa"))) {
+			ClientTickEvents.END_CLIENT_TICK.register(ArrowQa::tick);
+			return;
+		}
 		if ("hits".equals(System.getProperty("soulsmode.qa"))) {
 			ClientTickEvents.END_CLIENT_TICK.register(HitsQa::tick);
 			return;

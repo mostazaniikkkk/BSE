@@ -182,11 +182,16 @@ public final class SoulsBonfire {
 			return;
 		}
 		RESTING.put(player.getUUID(), new Rest(bonfire.immutable()));
+		// A host resting at a bonfire sends the invader home (SoulsPvp, the user's rule).
+		SoulsPvp.onHostRest(player);
 		remember(player, bonfire);
 		restore(player);
 		// Design choice: the respawn point is where the player stands next to the campfire (the campfire itself
 		// is not a free spot to respawn in).
 		player.setRespawnPosition(player.level().dimension(), player.blockPosition(), player.getYRot(), true, false);
+		// FUN_14044fe30 from FUN_1401cb950: the bonfire becomes the one to return to (Homeward Bone).
+		player.setAttached(SoulsAttachments.LAST_BONFIRE, new KnownBonfire(player.level().dimension().location(),
+				bonfire.immutable(), player.blockPosition()));
 		sendPose(player, true);
 	}
 
@@ -206,6 +211,8 @@ public final class SoulsBonfire {
 		SoulsMagic.restore(player, 100);
 		// 1000[01] (0..6, 3 s, x100): the status meters drain at once; the bleed one is the mod's (SoulsBleed).
 		SoulsBleed.clear(player);
+		// The same multiplier on indices 6 and 3, and event 871 ends the 石化 / 呪 entries (petrification.md 4).
+		SoulsStatus.clear(player);
 	}
 
 	/** Adds the bonfire to the travel list the first time the player rests at it. */
@@ -255,6 +262,8 @@ public final class SoulsBonfire {
 		float yaw = (float) Math.toDegrees(Math.atan2(-toFire.x, toFire.z));
 		player.teleportTo(level, stand.x, stand.y, stand.z, yaw, 0);
 		player.setRespawnPosition(level.dimension(), target.stand(), yaw, true, false);
+		// FUN_14044fe30 from FUN_14017fdb0: travelling also sets the bonfire to return to.
+		player.setAttached(SoulsAttachments.LAST_BONFIRE, target);
 		sendPose(player, false);
 	}
 

@@ -33,7 +33,8 @@ import net.minecraft.world.phys.shapes.VoxelShape;
 
 /**
  * An item lying on the ground, DS2's glowing pickup (the user's feature, 2026-11-01): a small white block that terrain
- * generation scatters (worldgen placed feature {@code soulsmode:ground_item}, 1 in 32 chunks; set by the user 2026-11-03); right click picks it up
+ * generation scatters (worldgen placed feature {@code soulsmode:ground_item}, 1 in 32 chunks; set by the user 2026-11-03;
+ * since 2026-11-10 also underground and inside structures at the same rate, GroundItemPlacer); right click picks it up
  * and gives one roll of the loot table {@code soulsmode:gameplay/ground_item} (the user's odds: low soul 50 %,
  * intermediate soul 30 %, a resin 15 %, Human Effigy 5 %). One pickup; it does not come back.
  */

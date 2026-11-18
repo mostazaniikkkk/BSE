@@ -103,7 +103,9 @@ public final class SoulsHollow {
 	/** Every death in Souls Mode adds to the counter (also while human). */
 	public static void onDeath(ServerPlayer player) {
 		if (SoulsGameMode.isActive(player)) {
-			player.setAttached(SoulsAttachments.HOLLOWING, Math.min(MAX_COUNT, count(player) + PER_DEATH));
+			// A petrification death is death type 3: u8@6 = 5 instead of u8@5 = 1 (FUN_140202c30, petrification.md 2.4).
+			player.setAttached(SoulsAttachments.HOLLOWING,
+					Math.min(MAX_COUNT, count(player) + SoulsStatus.deathHollowing(player, PER_DEATH)));
 		}
 	}
 

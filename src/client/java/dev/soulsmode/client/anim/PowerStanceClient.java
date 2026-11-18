@@ -167,11 +167,11 @@ public final class PowerStanceClient {
 	private static JsonObject clip(AbstractClientPlayer player, Moveset.Grip grip) {
 		boolean left = grip == Moveset.Grip.POWER_STANCE_LEFT;
 		var data = dev.soulsmode.ds2.PowerStance.data(dev.soulsmode.SoulsAttack.damageKey(
-				SoulsWeapons.movesetFor(left ? player.getOffhandItem() : player.getMainHandItem())));
+				SoulsWeapons.movesetFor(left ? player.getOffhandItem() : player.getMainHandItem(), left)));
 		if (data == null) {
 			return null;
 		}
-		JsonObject clips = Weapons.raw().getAsJsonObject("powerStanceClips");
+		JsonObject clips = Weapons.powerStanceClips();
 		String stance = String.valueOf(left ? data.stanceLeft() : data.stanceRight());
 		return clips == null || !clips.has(stance) ? null
 				: clips.getAsJsonObject(stance).getAsJsonObject(left ? "left" : "right");

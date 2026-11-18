@@ -45,7 +45,7 @@ public final class BowAim {
 	/** The bow or crossbow in a hand, or null. */
 	public static Bow ranged(Player player, boolean left) {
 		return Bow.of(SoulsAttack.damageKey(SoulsWeapons.movesetFor(left ? player.getOffhandItem()
-				: player.getMainHandItem())));
+				: player.getMainHandItem(), left)));
 	}
 
 	/** Which hand holds a ranged weapon: 0 none, 1 right, 2 left. */

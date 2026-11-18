@@ -1,0 +1,11 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {"particle": "minecraft:block/chiseled_stone_bricks", "stone": "minecraft:block/chiseled_stone_bricks"},
+  "elements": [
+    {"from": [0, 0, 5.5], "to": [16, 16, 10.5],
+     "faces": {
+       "north": {"texture": "#stone"}, "south": {"texture": "#stone"},
+       "east": {"uv": [5.5, 0, 10.5, 16], "texture": "#stone"}, "west": {"uv": [5.5, 0, 10.5, 16], "texture": "#stone"},
+       "up": {"uv": [0, 5.5, 16, 10.5], "texture": "#stone"}, "down": {"uv": [0, 5.5, 16, 10.5], "texture": "#stone"}}}
+  ]
+}

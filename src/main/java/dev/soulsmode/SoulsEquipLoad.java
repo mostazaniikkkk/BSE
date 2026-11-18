@@ -179,6 +179,12 @@ public final class SoulsEquipLoad {
 		if (item == Items.STICK) {
 			return unit(WOOD);
 		}
+		// The mod's own DS2 weapon items (the catalysts) weigh exactly their WeaponParam +0x20, 0 included (Pyromancy
+		// Flame).
+		if (WEAPON_WEIGHTS.containsKey(moveset)
+				&& SoulsMode.MOD_ID.equals(net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(item).getNamespace())) {
+			return ds2;
+		}
 		// Hoes keep their recipe weight (below) while the user decides whether the Silverblack Sickle's DS2 weight
 		// applies (asked 2026-11-09).
 		if (ds2 > 0 && !(item instanceof net.minecraft.world.item.HoeItem)) {

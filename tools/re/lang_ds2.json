@@ -1,187 +1,11 @@
 {
- "gui.soulsmode.bonfire.level_up": [
-  "bofire",
-  10100
- ],
- "gui.soulsmode.level_up.title": [
-  "bofire",
-  10100
- ],
- "gui.soulsmode.level_up.level": [
-  "titlemenu",
-  2000110002
- ],
- "gui.soulsmode.level_up.confirm": [
-  "bofire",
-  20200
- ],
- "gui.soulsmode.bonfire.travel": [
-  "bofire",
-  10102
- ],
- "gui.soulsmode.travel.title": [
-  "bofire",
-  10102
- ],
- "item.soulsmode.human_effigy": [
-  "charamaking",
-  11010520
- ],
- "item.soulsmode.soul_of_a_giant": [
+ "block.soulsmode.titanite_slab": [
   "itemname",
-  50920000
+  60990000
  ],
- "item.soulsmode.soul_of_a_giant.desc": [
-  "SimpleExplanation",
-  50920000
- ],
- "item.soulsmode.lloyds_talisman": [
-  "itemname",
-  60531000
- ],
- "item.soulsmode.lloyds_talisman.desc": [
-  "SimpleExplanation",
-  60531000
- ],
- "item.soulsmode.firebomb": [
-  "itemname",
-  60570000
- ],
- "item.soulsmode.firebomb.desc": [
-  "SimpleExplanation",
-  60570000
- ],
- "gui.soulsmode.stats.hp": [
+ "block.soulsmode.way_of_blue_altar": [
   "common",
-  909014
- ],
- "gui.soulsmode.stats.weight": [
-  "common",
-  80050104
- ],
- "item.soulsmode.rotten_pine_resin": [
-  "itemname",
-  60280000
- ],
- "item.soulsmode.gold_pine_resin": [
-  "itemname",
-  60250000
- ],
- "item.soulsmode.dark_pine_resin": [
-  "itemname",
-  60270000
- ],
- "gui.soulsmode.class.confirm": [
-  "bofire",
-  20200
- ],
- "gui.soulsmode.class.warrior": [
-  "common",
-  11010001
- ],
- "gui.soulsmode.class.knight": [
-  "common",
-  11010002
- ],
- "gui.soulsmode.class.swordsman": [
-  "common",
-  11010009
- ],
- "gui.soulsmode.class.bandit": [
-  "common",
-  11010004
- ],
- "gui.soulsmode.class.cleric": [
-  "common",
-  11010006
- ],
- "gui.soulsmode.class.sorcerer": [
-  "common",
-  11010007
- ],
- "gui.soulsmode.class.explorer": [
-  "common",
-  11010008
- ],
- "gui.soulsmode.class.deprived": [
-  "common",
-  11010010
- ],
- "item.soulsmode.spell": [
-  "npcmenu",
-  160106
- ],
- "gui.soulsmode.attune.inventory": [
-  "bofire",
-  60100
- ],
- "gui.soulsmode.stats.attack.magic": [
-  "npcmenu",
-  59203
- ],
- "gui.soulsmode.stats.attack.fire": [
-  "npcmenu",
-  59202
- ],
- "gui.soulsmode.stats.attack.dark": [
-  "charamaking",
-  15010151
- ],
- "gui.soulsmode.stats.attack.poison": [
-  "npcmenu",
-  59206
- ],
- "gui.soulsmode.stats.scale.fire": [
-  "npcmenu",
-  59202
- ],
- "item.soulsmode.soul_of_a_lost_undead": [
-  "itemname",
-  60630000
- ],
- "item.soulsmode.soul_of_a_lost_undead.desc": [
-  "SimpleExplanation",
-  60625000
- ],
- "item.soulsmode.large_soul_of_a_lost_undead": [
-  "itemname",
-  60640000
- ],
- "item.soulsmode.large_soul_of_a_lost_undead.desc": [
-  "SimpleExplanation",
-  60625000
- ],
- "item.soulsmode.soul_of_a_nameless_soldier": [
-  "itemname",
-  60650000
- ],
- "item.soulsmode.soul_of_a_nameless_soldier.desc": [
-  "SimpleExplanation",
-  60625000
- ],
- "item.soulsmode.large_soul_of_a_nameless_soldier": [
-  "itemname",
-  60660000
- ],
- "item.soulsmode.large_soul_of_a_nameless_soldier.desc": [
-  "SimpleExplanation",
-  60625000
- ],
- "message.soulsmode.invaded": [
-  "IngameSystem",
-  1210006
- ],
- "class.soulsmode.warrior": [
-  "common",
-  11010001
- ],
- "class.soulsmode.knight": [
-  "common",
-  11010002
- ],
- "class.soulsmode.swordsman": [
-  "common",
-  11010009
+  40000004
  ],
  "class.soulsmode.bandit": [
   "common",
@@ -195,29 +19,421 @@
   "common",
   11010010
  ],
- "item.soulsmode.bonfire_ascetic.desc": [
-  "SimpleExplanation",
-  60527000
+ "class.soulsmode.knight": [
+  "common",
+  11010002
  ],
- "gui.soulsmode.bonfire.burn_none": [
+ "class.soulsmode.swordsman": [
+  "common",
+  11010009
+ ],
+ "class.soulsmode.warrior": [
+  "common",
+  11010001
+ ],
+ "covenant.soulsmode.4": [
+  "common",
+  40000004
+ ],
+ "enchantment.soulsmode.bleed_infusion": [
+  "npcMenu",
+  59207
+ ],
+ "enchantment.soulsmode.bloodbite": [
+  "itemname",
+  40110000
+ ],
+ "enchantment.soulsmode.blue_seal": [
+  "itemname",
+  40740000
+ ],
+ "enchantment.soulsmode.blue_tearstone": [
+  "itemname",
+  40280000
+ ],
+ "enchantment.soulsmode.dark_infusion": [
+  "npcMenu",
+  59205
+ ],
+ "enchantment.soulsmode.enchanted_infusion": [
+  "npcMenu",
+  59209
+ ],
+ "enchantment.soulsmode.fire_infusion": [
+  "npcMenu",
+  59202
+ ],
+ "enchantment.soulsmode.lightning_infusion": [
+  "npcMenu",
+  59204
+ ],
+ "enchantment.soulsmode.magic_infusion": [
+  "npcMenu",
+  59203
+ ],
+ "enchantment.soulsmode.mundane_infusion": [
+  "npcMenu",
+  59210
+ ],
+ "enchantment.soulsmode.poison_infusion": [
+  "npcMenu",
+  59206
+ ],
+ "enchantment.soulsmode.raw_infusion": [
+  "npcMenu",
+  59208
+ ],
+ "gui.soulsmode.attune.inventory": [
   "bofire",
-  90200
+  60100
  ],
  "gui.soulsmode.bonfire.burn_confirm": [
   "bofire",
   90100
  ],
- "message.soulsmode.ascetic.none": [
+ "gui.soulsmode.bonfire.burn_none": [
   "bofire",
   90200
  ],
- "item.soulsmode.titanite_shard": [
-  "itemname",
-  60970000
+ "gui.soulsmode.bonfire.level_up": [
+  "bofire",
+  10100
  ],
- "item.soulsmode.titanite_shard.desc": [
+ "gui.soulsmode.bonfire.travel": [
+  "bofire",
+  10102
+ ],
+ "gui.soulsmode.class.bandit": [
+  "common",
+  11010004
+ ],
+ "gui.soulsmode.class.cleric": [
+  "common",
+  11010006
+ ],
+ "gui.soulsmode.class.confirm": [
+  "bofire",
+  20200
+ ],
+ "gui.soulsmode.class.deprived": [
+  "common",
+  11010010
+ ],
+ "gui.soulsmode.class.explorer": [
+  "common",
+  11010008
+ ],
+ "gui.soulsmode.class.knight": [
+  "common",
+  11010002
+ ],
+ "gui.soulsmode.class.sorcerer": [
+  "common",
+  11010007
+ ],
+ "gui.soulsmode.class.swordsman": [
+  "common",
+  11010009
+ ],
+ "gui.soulsmode.class.warrior": [
+  "common",
+  11010001
+ ],
+ "gui.soulsmode.covenant.abandon": [
+  "npcMenu",
+  10110
+ ],
+ "gui.soulsmode.covenant.ask_abandon": [
+  "MapEvent",
+  1302
+ ],
+ "gui.soulsmode.covenant.ask_join.4": [
+  "MapEvent",
+  1333
+ ],
+ "gui.soulsmode.covenant.ask_switch.4": [
+  "MapEvent",
+  1343
+ ],
+ "gui.soulsmode.covenant.enter": [
+  "npcMenu",
+  10105
+ ],
+ "gui.soulsmode.covenant.rank": [
+  "npcMenu",
+  90202
+ ],
+ "gui.soulsmode.level_up.confirm": [
+  "bofire",
+  20200
+ ],
+ "gui.soulsmode.level_up.level": [
+  "titlemenu",
+  2000110002
+ ],
+ "gui.soulsmode.level_up.title": [
+  "bofire",
+  10100
+ ],
+ "gui.soulsmode.levelup.909014": [
+  "common",
+  909014
+ ],
+ "gui.soulsmode.levelup.909015": [
+  "common",
+  909015
+ ],
+ "gui.soulsmode.levelup.909016": [
+  "common",
+  909016
+ ],
+ "gui.soulsmode.levelup.909017": [
+  "common",
+  909017
+ ],
+ "gui.soulsmode.levelup.909018": [
+  "common",
+  909018
+ ],
+ "gui.soulsmode.levelup.909019": [
+  "common",
+  909019
+ ],
+ "gui.soulsmode.levelup.909020": [
+  "common",
+  909020
+ ],
+ "gui.soulsmode.levelup.909021": [
+  "common",
+  909021
+ ],
+ "gui.soulsmode.levelup.909022": [
+  "common",
+  909022
+ ],
+ "gui.soulsmode.levelup.909023": [
+  "common",
+  909023
+ ],
+ "gui.soulsmode.levelup.909024": [
+  "common",
+  909024
+ ],
+ "gui.soulsmode.levelup.909025": [
+  "common",
+  909025
+ ],
+ "gui.soulsmode.levelup.909026": [
+  "common",
+  909026
+ ],
+ "gui.soulsmode.levelup.909028": [
+  "common",
+  909028
+ ],
+ "gui.soulsmode.levelup.909029": [
+  "common",
+  909029
+ ],
+ "gui.soulsmode.levelup.909030": [
+  "common",
+  909030
+ ],
+ "gui.soulsmode.levelup.909031": [
+  "common",
+  909031
+ ],
+ "gui.soulsmode.levelup.909032": [
+  "common",
+  909032
+ ],
+ "gui.soulsmode.levelup.909033": [
+  "common",
+  909033
+ ],
+ "gui.soulsmode.levelup.909034": [
+  "common",
+  909034
+ ],
+ "gui.soulsmode.levelup.909036": [
+  "common",
+  909036
+ ],
+ "gui.soulsmode.levelup.909038": [
+  "common",
+  909038
+ ],
+ "gui.soulsmode.levelup.909040": [
+  "common",
+  909040
+ ],
+ "gui.soulsmode.levelup.909043": [
+  "common",
+  909043
+ ],
+ "gui.soulsmode.levelup.909046": [
+  "common",
+  909046
+ ],
+ "gui.soulsmode.levelup.909047": [
+  "common",
+  909047
+ ],
+ "gui.soulsmode.levelup.909048": [
+  "common",
+  909048
+ ],
+ "gui.soulsmode.levelup.909049": [
+  "common",
+  909049
+ ],
+ "gui.soulsmode.levelup.909051": [
+  "common",
+  909051
+ ],
+ "gui.soulsmode.levelup.arrow": [
+  "bofire",
+  20300
+ ],
+ "gui.soulsmode.stats.attack.dark": [
+  "charamaking",
+  15010151
+ ],
+ "gui.soulsmode.stats.attack.fire": [
+  "npcmenu",
+  59202
+ ],
+ "gui.soulsmode.stats.attack.magic": [
+  "npcmenu",
+  59203
+ ],
+ "gui.soulsmode.stats.attack.poison": [
+  "npcmenu",
+  59206
+ ],
+ "gui.soulsmode.stats.hp": [
+  "common",
+  909014
+ ],
+ "gui.soulsmode.stats.scale.fire": [
+  "npcmenu",
+  59202
+ ],
+ "gui.soulsmode.stats.weight": [
+  "common",
+  80050104
+ ],
+ "gui.soulsmode.travel.title": [
+  "bofire",
+  10102
+ ],
+ "gui.soulsmode.use_check.30000001": [
+  "common",
+  30000001
+ ],
+ "gui.soulsmode.use_check.30000003": [
+  "common",
+  30000003
+ ],
+ "gui.soulsmode.use_check.30000004": [
+  "common",
+  30000004
+ ],
+ "gui.soulsmode.use_check.30000010": [
+  "common",
+  30000010
+ ],
+ "gui.soulsmode.use_check.no": [
+  "common",
+  201
+ ],
+ "gui.soulsmode.use_check.yes": [
+  "common",
+  200
+ ],
+ "item.soulsmode.alluring_skull": [
+  "itemname",
+  60530000
+ ],
+ "item.soulsmode.alluring_skull.desc": [
   "SimpleExplanation",
-  60970000
+  60530000
+ ],
+ "item.soulsmode.black_separation_crystal": [
+  "itemname",
+  62160000
+ ],
+ "item.soulsmode.black_separation_crystal.desc": [
+  "SimpleExplanation",
+  62160000
+ ],
+ "item.soulsmode.bonfire_ascetic.desc": [
+  "SimpleExplanation",
+  60527000
+ ],
+ "item.soulsmode.clerics_chime": [
+  "itemname",
+  4010000
+ ],
+ "item.soulsmode.cracked_red_eye_orb": [
+  "itemname",
+  62060000
+ ],
+ "item.soulsmode.cracked_red_eye_orb.desc": [
+  "SimpleExplanation",
+  62060000
+ ],
+ "item.soulsmode.dark_pine_resin": [
+  "itemname",
+  60270000
+ ],
+ "item.soulsmode.firebomb": [
+  "itemname",
+  60570000
+ ],
+ "item.soulsmode.firebomb.desc": [
+  "SimpleExplanation",
+  60570000
+ ],
+ "item.soulsmode.fragrant_branch": [
+  "itemname",
+  60537000
+ ],
+ "item.soulsmode.fragrant_branch.desc": [
+  "SimpleExplanation",
+  60537000
+ ],
+ "item.soulsmode.gold_pine_resin": [
+  "itemname",
+  60250000
+ ],
+ "item.soulsmode.homeward_bone": [
+  "itemname",
+  60350000
+ ],
+ "item.soulsmode.homeward_bone.desc": [
+  "SimpleExplanation",
+  60350000
+ ],
+ "item.soulsmode.human_effigy": [
+  "charamaking",
+  11010520
+ ],
+ "item.soulsmode.large_soul_of_a_lost_undead": [
+  "itemname",
+  60640000
+ ],
+ "item.soulsmode.large_soul_of_a_lost_undead.desc": [
+  "SimpleExplanation",
+  60625000
+ ],
+ "item.soulsmode.large_soul_of_a_nameless_soldier": [
+  "itemname",
+  60660000
+ ],
+ "item.soulsmode.large_soul_of_a_nameless_soldier.desc": [
+  "SimpleExplanation",
+  60625000
  ],
  "item.soulsmode.large_titanite_shard": [
   "itemname",
@@ -227,6 +443,62 @@
   "SimpleExplanation",
   60975000
  ],
+ "item.soulsmode.lloyds_talisman": [
+  "itemname",
+  60531000
+ ],
+ "item.soulsmode.lloyds_talisman.desc": [
+  "SimpleExplanation",
+  60531000
+ ],
+ "item.soulsmode.pyromancy_flame": [
+  "itemname",
+  5400000
+ ],
+ "item.soulsmode.rotten_pine_resin": [
+  "itemname",
+  60280000
+ ],
+ "item.soulsmode.sorcerers_staff": [
+  "itemname",
+  3800000
+ ],
+ "item.soulsmode.soul_of_a_giant": [
+  "itemname",
+  50920000
+ ],
+ "item.soulsmode.soul_of_a_giant.desc": [
+  "SimpleExplanation",
+  50920000
+ ],
+ "item.soulsmode.soul_of_a_lost_undead": [
+  "itemname",
+  60630000
+ ],
+ "item.soulsmode.soul_of_a_lost_undead.desc": [
+  "SimpleExplanation",
+  60625000
+ ],
+ "item.soulsmode.soul_of_a_nameless_soldier": [
+  "itemname",
+  60650000
+ ],
+ "item.soulsmode.soul_of_a_nameless_soldier.desc": [
+  "SimpleExplanation",
+  60625000
+ ],
+ "item.soulsmode.soul_of_the_last_giant": [
+  "itemname",
+  64010000
+ ],
+ "item.soulsmode.soul_of_the_last_giant.desc": [
+  "SimpleExplanation",
+  64010000
+ ],
+ "item.soulsmode.spell": [
+  "npcmenu",
+  160106
+ ],
  "item.soulsmode.titanite_chunk": [
   "itemname",
   60980000
@@ -234,6 +506,14 @@
  "item.soulsmode.titanite_chunk.desc": [
   "SimpleExplanation",
   60980000
+ ],
+ "item.soulsmode.titanite_shard": [
+  "itemname",
+  60970000
+ ],
+ "item.soulsmode.titanite_shard.desc": [
+  "SimpleExplanation",
+  60970000
  ],
  "item.soulsmode.titanite_slab": [
   "itemname",
@@ -251,44 +531,120 @@
   "SimpleExplanation",
   61000000
  ],
- "block.soulsmode.titanite_slab": [
+ "message.soulsmode.ascetic.none": [
+  "bofire",
+  90200
+ ],
+ "message.soulsmode.covenant.abandoned": [
+  "MapEvent",
+  1303
+ ],
+ "message.soulsmode.covenant.already": [
+  "MapEvent",
+  1305
+ ],
+ "message.soulsmode.covenant.devotion": [
+  "MapEvent",
+  1307
+ ],
+ "message.soulsmode.covenant.inventory_full": [
+  "MapEvent",
+  1011
+ ],
+ "message.soulsmode.covenant.joined": [
+  "MapEvent",
+  1301
+ ],
+ "message.soulsmode.covenant.none": [
+  "MapEvent",
+  1304
+ ],
+ "message.soulsmode.covenant.phantom_join": [
+  "MapEvent",
+  1311
+ ],
+ "message.soulsmode.covenant.phantom_leave": [
+  "MapEvent",
+  1315
+ ],
+ "message.soulsmode.covenant.rank_up": [
+  "MapEvent",
+  1308
+ ],
+ "message.soulsmode.covenant.saulden_reward": [
+  "talk/m10_04_00_00",
+  74101700
+ ],
+ "message.soulsmode.cursed": [
+  "common",
+  21000
+ ],
+ "message.soulsmode.invaded": [
+  "IngameSystem",
+  1210006
+ ],
+ "message.soulsmode.pvp.blue_vanquished": [
+  "IngameSystem",
+  1221103
+ ],
+ "message.soulsmode.pvp.dark_vanquished": [
+  "IngameSystem",
+  1221104
+ ],
+ "message.soulsmode.pvp.defend_travel": [
+  "IngameSystem",
+  1130001
+ ],
+ "message.soulsmode.pvp.defender_came": [
+  "IngameSystem",
+  1210009
+ ],
+ "message.soulsmode.pvp.guard_ended": [
+  "IngameSystem",
+  1221301
+ ],
+ "message.soulsmode.pvp.guard_won": [
+  "IngameSystem",
+  1221303
+ ],
+ "message.soulsmode.pvp.help_cancelled": [
+  "IngameSystem",
+  210257
+ ],
+ "message.soulsmode.pvp.host_defeated": [
+  "IngameSystem",
+  1221007
+ ],
+ "message.soulsmode.pvp.host_died": [
+  "IngameSystem",
+  1221001
+ ],
+ "message.soulsmode.pvp.invaded": [
+  "IngameSystem",
+  1210006
+ ],
+ "message.soulsmode.pvp.invading": [
+  "IngameSystem",
+  1210105
+ ],
+ "message.soulsmode.pvp.lost": [
+  "IngameSystem",
+  1220001
+ ],
+ "message.soulsmode.pvp.no_world": [
+  "IngameSystem",
+  120001
+ ],
+ "message.soulsmode.statue.blocks": [
+  "MapEvent",
+  1017
+ ],
+ "message.soulsmode.statue.use": [
+  "MapEvent",
+  1002
+ ],
+ "spell.soulsmode.hush": [
   "itemname",
-  60990000
- ],
- "enchantment.soulsmode.fire_infusion": [
-  "npcMenu",
-  59202
- ],
- "enchantment.soulsmode.magic_infusion": [
-  "npcMenu",
-  59203
- ],
- "enchantment.soulsmode.lightning_infusion": [
-  "npcMenu",
-  59204
- ],
- "enchantment.soulsmode.dark_infusion": [
-  "npcMenu",
-  59205
- ],
- "enchantment.soulsmode.poison_infusion": [
-  "npcMenu",
-  59206
- ],
- "enchantment.soulsmode.bleed_infusion": [
-  "npcMenu",
-  59207
- ],
- "enchantment.soulsmode.raw_infusion": [
-  "npcMenu",
-  59208
- ],
- "enchantment.soulsmode.enchanted_infusion": [
-  "npcMenu",
-  59209
- ],
- "enchantment.soulsmode.mundane_infusion": [
-  "npcMenu",
-  59210
+  31230000
  ]
 }

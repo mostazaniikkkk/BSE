@@ -52,6 +52,11 @@ public final class StaminaHud {
 	}
 
 	/** True while the local player is in Souls Mode (as told by the server); gates every client-side mechanic. */
+	/** The last synced stamina is used up (the server refuses dodges and attacks at <= 0). */
+	public static boolean empty() {
+		return current <= 0;
+	}
+
 	public static boolean soulsMode() {
 		Minecraft mc = Minecraft.getInstance();
 		return soulsMode && mc.player != null && mc.gameMode != null && mc.gameMode.canHurtPlayer();

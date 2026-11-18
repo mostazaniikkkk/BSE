@@ -39,6 +39,7 @@ public final class ContentReloader {
 			public void onResourceManagerReload(ResourceManager manager) {
 				SoulsContent.apply(read(manager));
 				dev.soulsmode.SoulsScripts.load(scripts(manager));
+				warnMissingScripts();
 			}
 		});
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> send(handler.getPlayer()));
@@ -68,6 +69,22 @@ public final class ContentReloader {
 			out.put(kind, files);
 		}
 		return out;
+	}
+
+	/** A spell or enemy naming a script that is missing or did not load would otherwise just run without it. */
+	private static void warnMissingScripts() {
+		for (ResourceLocation id : SoulsContent.sources().getOrDefault(SoulsContent.Kind.SPELL, Map.of()).keySet()) {
+			dev.soulsmode.ds2.Spells.Spell spell = SoulsContent.spell(id);
+			if (spell != null && spell.script() != null && !dev.soulsmode.SoulsScripts.loaded(spell.script())) {
+				SoulsMode.LOGGER.warn("[BSE] spell {} names script {}, which is not loaded", id, spell.script());
+			}
+		}
+		for (ResourceLocation id : SoulsContent.enemyIds()) {
+			dev.soulsmode.ds2.Enemies.Def enemy = SoulsContent.enemy(id);
+			if (enemy != null && enemy.script() != null && !dev.soulsmode.SoulsScripts.loaded(enemy.script())) {
+				SoulsMode.LOGGER.warn("[BSE] enemy {} names script {}, which is not loaded", id, enemy.script());
+			}
+		}
 	}
 
 	/** {@code data/<ns>/soulsmode/script/<name>.lua} -> id {@code <ns>:<name>} (server only, never sent to clients). */

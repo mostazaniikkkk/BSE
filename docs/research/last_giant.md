@@ -384,6 +384,11 @@ Locomoción exportada (`loop`, sin eventos de golpe):
 - **Locomoción del modo 1** (solo hay `Wep02_Idle`).
 - **Almas del jefe** (`EP+0xd0` = 0; `BossParam` / `BossBattleParam` sin decodificar). En el mod el gigante es un
   castigo: si da almas es decisión del usuario.
+- **Lo que suelta en el mod** (pedido del usuario, 2026-11-10): el **Alma del último gigante** (ItemParam 64010000,
+  6000 almas, [soul_items.md](soul_items.md) "Alma del último gigante"), el objeto que DS2 pone en su lote
+  `ItemLotParam2_Other 309600` (`+0x2c`, lectura por datos). Antes soltaba el Alma de un gigante (50920000).
+- **Cuándo aparece en el mod** (diseño del usuario, 2026-11-10): cada **3** hogueras activas que rompe un jugador en
+  Modo Souls (la 3.ª, la 6.ª…), contadas por jugador (`soulsmode:bonfires_broken`). No es DS2.
 - **EnemyParam 3096**: qué variante es.
 - **Cápsula del cuerpo** (`c3096_h.hkx`): sin leer; el gigante de Minecraft mide 3.6 × 12 bloques.
 - **Escala**: metros = bloques (0.906 del modelo); escalar o no es decisión del usuario.

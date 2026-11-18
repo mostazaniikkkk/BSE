@@ -43,6 +43,52 @@ public final class Weapons {
 		return raw;
 	}
 
+	/** Datapack weapons' resolved entries (extends applied) by full id, and the merged animation table (SoulsContent). */
+	private static volatile Map<String, JsonObject> packEntries = Map.of();
+	private static volatile JsonObject packAnimations = null;
+	private static volatile JsonObject packStanceClips = null;
+
+	public static void setPack(Map<String, JsonObject> entries, JsonObject animations, JsonObject powerStanceClips) {
+		packEntries = Map.copyOf(entries);
+		packAnimations = animations;
+		packStanceClips = powerStanceClips;
+	}
+
+	/** A datapack weapon's resolved entry by full id, or null. */
+	public static JsonObject packEntry(String key) {
+		return key == null ? null : packEntries.get(key);
+	}
+
+	/** A weapon's entry: a datapack weapon's (full id) or a built-in one's (name); null when unknown. */
+	public static JsonObject entry(String key) {
+		if (key == null) {
+			return null;
+		}
+		JsonObject p = packEntries.get(key);
+		return p != null ? p : raw().getAsJsonObject("weapons").getAsJsonObject(key);
+	}
+
+	/** The animation table: the mod's plus every datapack's {@code animations}. */
+	public static JsonObject animations() {
+		JsonObject p = packAnimations;
+		return p != null ? p : raw().getAsJsonObject("animations");
+	}
+
+	/**
+	 * The power stance locomotion clips by stance id (weapons.json {@code powerStanceClips}) plus a datapack weapon
+	 * file's own {@code powerStanceClips}.
+	 */
+	public static JsonObject powerStanceClips() {
+		JsonObject p = packStanceClips;
+		return p != null ? p : raw().getAsJsonObject("powerStanceClips");
+	}
+
+	/** WeaponTypeParam +0x6c of a weapon (weapons.json {@code counterRate}), NaN when it has none. */
+	public static float counterRate(String key) {
+		JsonObject w = entry(key);
+		return w != null && w.has("counterRate") ? w.get("counterRate").getAsFloat() : Float.NaN;
+	}
+
 	public static Map<String, Moveset> load() {
 		JsonObject json = raw();
 		JsonObject animations = json.getAsJsonObject("animations");
@@ -83,7 +129,7 @@ public final class Weapons {
 	 * grip's block. Null without one.
 	 */
 	public static JsonObject guardSlot(String weapon, boolean weaponLeft, boolean twoHanded, Moveset.Type type) {
-		JsonObject w = raw().getAsJsonObject("weapons").getAsJsonObject(weapon);
+		JsonObject w = entry(weapon);
 		if (w == null) {
 			return null;
 		}
@@ -360,6 +406,7 @@ public final class Weapons {
 					a.has("moveLock") ? a.get("moveLock").getAsFloat() : duration,
 					a.has("attackLock") ? a.get("attackLock").getAsFloat() : duration);
 			SwingSpeed.register(critical, s, a);
+			AttackData.register(critical, s, a);
 			return critical;
 		}
 		if (a.has("guard")) {
@@ -375,6 +422,7 @@ public final class Weapons {
 				s.get("staminaCost").getAsFloat(), charges(hits), windows(a.getAsJsonArray("regenBlock")));
 		HitBack.register(attack, s);
 		SwingSpeed.register(attack, s, a);
+		AttackData.register(attack, s, a);
 		return attack;
 	}
 
@@ -626,6 +674,14 @@ public final class Weapons {
 	 */
 	public static Effigy firebomb() {
 		return itemUse("firebomb", 180110);
+	}
+
+	/**
+	 * Homeward Bone (docs/research/bonfire.md "Hueso de regreso"): ItemTypeParam 250 -> a00_18_0080 ItemUsePray, the warp
+	 * at TAE 220000 (2.333 s).
+	 */
+	public static Effigy homewardBone() {
+		return itemUse("homeward_bone", 180080);
 	}
 
 	private static Effigy itemUse(String key, int taeId) {

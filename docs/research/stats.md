@@ -128,3 +128,30 @@ antes de portarlos.
   (`LevelUpSoulsTable.ONE_LEVEL_EACH`), en lugar de `PlayerLevelUpSoulsParam` (FUN_14038d140), que sigue cargado pero
   ya no se usa para subir de nivel.
 - Las almas siguen siendo los puntos de experiencia para todo lo demás (mancha de sangre, memoria de almas).
+
+## Pantalla de subir nivel: vista previa (investigación del 2026-11-10; `D:\Reversing\DS2\out\levelup\`)
+- `FUN_1400cc620(menu, statsActuales)` llena **una sola página**: rejilla de **3 columnas × 13 renglones** (39 celdas,
+  `FUN_1400cd9d0` entero / `FUN_1400cdbb0` `%0.1f`). Cada celda muestra **"actual ⇒ previsto"** (`bofire` 20300 = "⇒").
+  Actual = stats reales; previsto = la copia del menú (`menu+0x1cb0`) con el mismo equipo (`FUN_14008c700`).
+- **Columna 0** (MenuStatsParam por índice, `FUN_140358cf0`; fuera de 1..99 → fila 1): PS (PSPL, como `DerivedStats`),
+  Energía MSP[AGU]+0x02, Peso MSP[VIG]+0x38 (f32), Ranuras MSP[APR]+0x06 (0..14), Vel. hechizo MSP[(2 APR+INT+FE)/4]+0x08
+  (más un ajuste `FUN_14014d130` sin decodificar), ATQ Fue MSP[FUE]+0x0a, ATQ Des MSP[DES]+0x0c, bonos magia MSP[INT]+0x0e,
+  fuego MSP[(INT+FE)/2]+0x10, rayo MSP[FE]+0x12, oscuro MSP[min(INT,FE)]+0x14, veneno MSP[(3 DES+ADP)/4]+0x16, sangrado
+  MSP[(3 DES+FE)/4]+0x18.
+- **Columna 1** (solo stats, sin armadura): DEF física MSP[(AGU+VIG+FUE+DES)/4]+0x1c, mágica MSP[INT]+0x1e, fuego
+  MSP[(INT+FE)/2]+0x20, rayo MSP[FE]+0x22, oscura MSP[min]+0x24, veneno MSP[(3 ADP+VIG)/4]+0x26, sangrado
+  MSP[(3 ADP+FE)/4]+0x28, petrificación MSP[(3 ADP+VIT)/4]+0x2c, maldición MSP[(3 ADP+APR)/4]+0x2e, Agilidad +0x32,
+  Estabilidad PSPL[min(AGU,ADP)]+0x90. Renglones 0 y 8 sin texto (MSP[FUE]+0x1a, MSP[ADP]+0x2a).
+- **Columna 2** (con equipo): ATQ de las armas der. 1..3 / izq. 1..3 = **un número: físico + magia + rayo + fuego +
+  oscuro** (`FUN_1402019f0`, con escalado y falta de stats de los stats previstos); Golpe / Corte / Empujón = Σ piezas
+  ArmorReinforceParam subtipo 2 / 0 / 1 + Σ ArmorParam +0x1c × DEF física de stats; Estabilidad con armadura.
+- Color del previsto: igual → `'g'`, sube → 0x99, baja → 0x98 (qué color es cada código no está en el código). Marca
+  0x12 de `LevelUpStatusCalcParam`: resalta las celdas que dependen del atributo con el cursor.
+- (Nota: la DEF física de la pantalla es MSP+0x1c; la de combate es PSPL+0x80; no siempre coinciden.)
+- **En el mod** (`LevelUpScreen.grid`, `ds2/MenuStats`; `weapons.json → menuStats`): la rejilla completa con "actual ⇒
+  previsto". Simplificaciones: un arma por mano (der. 1 = mano principal, izq. 1 = mano secundaria; der./izq. 2 y 3 no
+  existen en Minecraft); el previsto que cambia va en azul (color de diseño); sin las marcas de `LevelUpStatusCalcParam`
+  (el mod no tiene cursor de atributo); Vel. hechizo sin el ajuste de `FUN_14014d130`; la estabilidad con armadura usa
+  la del mod (con la falta de stats), DS2 en este menú no la aplica.
+- **Sin confirmar**: los colores de `'g'` / 0x98 / 0x99, si las celdas sin texto se ven, los modificadores de contexto
+  `FUN_14014cf80` y familia (se toman como 1), el ATQ a dos manos en el menú.

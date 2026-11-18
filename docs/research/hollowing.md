@@ -16,7 +16,7 @@ Datos: regulation (`CriminalAndDeceasedParam`, `ItemParam`, `ItemTypeParam`, `It
   `FUN_1402026e0` corre al (re)iniciar el personaje (`FUN_14037d380`, cuando `+0x1d0` pasa a 1) y en `FUN_140202690`.
 - **Al morir** (`FUN_14037dcc0`): `FUN_140202c30(estado, chr.b8+0x76d)`:
   - `chr.b8+0x76d != 3` → `H += CriminalAndDeceasedParam[0].u8@5` (= **1**);
-  - `== 3` → `H += u8@6` (= **5**). Qué muerte es la 3: **sin identificar**.
+  - `== 3` → `H += u8@6` (= **5**). La muerte 3 es la **petrificación** (petrification.md §2.4).
   - **No mira si eras humano**: muriendo como humano también suma. No suma si `thunk_FUN_140014b03(chr)`,
     `FUN_14016f740(chr)`, `FUN_14031c850(b8)`, `b8+0x4c8` bit 55 o `b8+0x4b8` bit 58 (significado sin identificar;
     `FUN_14013d9f0` pone el bit 55).
@@ -59,7 +59,7 @@ chr+0x168 = clamp(min(vidaActual, chr+0x174), chr+0x16c, chr+0x170);
 
 ## Efigie humana — objeto 60151000
 - **ItemParam 60151000** (0x54 bytes): `+0x00` icono 60151000, `+0x04` SpEffect al usar **60151000**,
-  `+0x08/+0x0c/+0x10` modelos en mano 870/871/872 (TAE 220200 → `b8+0x6f0..0x6f8`, `FUN_14016b840`),
+  `+0x08/+0x0c/+0x10` modelos en mano (en realidad ids de FFX, ver sounds.md §8) 870/871/872 (TAE 220200 → `b8+0x6f0..0x6f8`, `FUN_14016b840`),
   `+0x38` f32 0.7 (velocidad: `ItemUse_Speed` = 0.7 × factores, `FUN_14032f750`), `+0x40` ItemTypeParam **500**,
   `+0x44` ItemUsageParam 2140, `+0x4a` u16 99 (probable máximo; no verificado).
 - **SpEffect 60151000** (`SpEffectActiveItem.emevd`): una instrucción `100050[02] (1)` → `FUN_14022ab90`
@@ -107,7 +107,7 @@ chr+0x168 = clamp(min(vidaActual, chr+0x174), chr+0x16c, chr+0x170);
   (`out\hollow\effigy_text.txt`).
 
 ## Sin confirmar
-- Qué es la muerte tipo 3 (+5) y las condiciones que evitan sumar.
+- Las condiciones que evitan sumar. (La muerte tipo 3, +5, es la petrificación: petrification.md §2.4.)
 - Significado del contador `+0x1d7` / estado `+0x1d6` (piso 5 %).
 - Valor base de `b8+0x430` (se asume 1.0 sin efectos: **no verificado**).
 - Qué valor de `ItemUseCategory` elige qué nodo dentro del nmb.

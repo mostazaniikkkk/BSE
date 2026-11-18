@@ -83,6 +83,16 @@ public final class AttackClient {
 	/** The current press of the use key opened a block or rested at a bonfire. */
 	private static boolean usedNearby;
 	private static int ticks;
+	/**
+	 * Latency compensation (the user's choice, 2026-11-10): an attack started from idle plays at once on this client,
+	 * before the server's Start; the server dates it from the press (SoulsAttack.start). The Start that confirms it does
+	 * not restart it; a different one replaces it; none within {@link #PREDICT_TIMEOUT} ticks stops it.
+	 */
+	private static Attack predicted;
+	private static Moveset.Type predictedType;
+	private static int predictedTicks;
+	/** Design choice: one second without the server's Start means the press was refused. */
+	private static final int PREDICT_TIMEOUT = 20;
 
 	private AttackClient() {
 	}
@@ -125,8 +135,13 @@ public final class AttackClient {
 				}
 			}
 		});
-		ClientPlayNetworking.registerGlobalReceiver(AttackPayloads.Start.TYPE, (payload, context) -> {
-			Entity entity = context.client().level == null ? null : context.client().level.getEntity(payload.entityId());
+		ClientPlayNetworking.registerGlobalReceiver(AttackPayloads.Start.TYPE,
+				(payload, context) -> onStart(context.client(), payload));
+	}
+
+	private static void onStart(Minecraft client, AttackPayloads.Start payload) {
+		{
+			Entity entity = client.level == null ? null : client.level.getEntity(payload.entityId());
 			if (!(entity instanceof AbstractClientPlayer player) || payload.actionType() < 0
 					|| payload.actionType() >= Moveset.Type.values().length) {
 				return;
@@ -144,6 +159,14 @@ public final class AttackClient {
 					: moveset == null ? null : moveset.attack(payload.weaponLeft(), payload.twoHanded(), type);
 			if (attack == null) {
 				return;
+			}
+			if (player == client.player && predicted != null) {
+				// The server's answer to a predicted start: the same attack keeps playing from the press.
+				boolean same = predicted == attack && predictedType == type;
+				predicted = null;
+				if (same) {
+					return;
+				}
 			}
 			ResourceLocation animation = ResourceLocation.parse(attack.animation());
 			if (type == Moveset.Type.FALL) {
@@ -182,7 +205,7 @@ public final class AttackClient {
 				// Any other action drops the guard (FUN_14038fd30 refuses it): SM 0x210e's exit blend.
 				dev.soulsmode.client.anim.GuardLayerClient.stop(player);
 			}
-			if (player == context.client().player) {
+			if (player == client.player) {
 				// The guard's button keeps the guard during a guard attack; its release still has to reach the server.
 				if (guardAttack && current != null && current.guard()) {
 					guardInput = heldInput;
@@ -205,7 +228,7 @@ public final class AttackClient {
 				player.yHeadRot = payload.yaw();
 				player.setSprinting(false);
 			}
-		});
+		}
 	}
 
 	/**
@@ -220,9 +243,16 @@ public final class AttackClient {
 		if (mines(client, player)) {
 			return false;
 		}
-		if (player.isInWater()) {
-			// Placeholder authorised by the user (2026-11-04): DS2 has no fighting in water, and the DS2 attacks need
-			// the ground, so in water the attack key is Minecraft's own attack until a water combat is designed.
+		if (client.hitResult instanceof net.minecraft.world.phys.EntityHitResult hit
+				&& !(hit.getEntity() instanceof net.minecraft.world.entity.LivingEntity)) {
+			// Boats, minecarts, item frames, paintings, end crystals: Minecraft's own hit breaks them (bug 2026-11-17: the
+			// DS2 swing only hits living things, so a boat took several swings, or none, to break).
+			return false;
+		}
+		if (dev.soulsmode.SoulsWater.deep(player)) {
+			// Placeholder authorised by the user (2026-11-04, narrowed 2026-11-16): DS2 has no fighting in deep water, so
+			// swimming or with the head under water the attack key is Minecraft's own attack until a water combat is
+			// designed. With only the feet in water the Souls moveset stays (SoulsWater).
 			return false;
 		}
 		lastInput = () -> client.options.keyAttack.isDown();
@@ -264,15 +294,15 @@ public final class AttackClient {
 		if (player == null || !StaminaHud.soulsMode() || client.level == null) {
 			return false;
 		}
-		if (player.isInWater()) {
-			// Placeholder authorised by the user (2026-11-04): in water the survival moveset (vanilla use: trident,
+		if (dev.soulsmode.SoulsWater.deep(player)) {
+			// Placeholder authorised by the user (2026-11-04): in deep water the survival moveset (vanilla use: trident,
 			// bow, shield, eating...), like the attack key (onAttackKey).
 			return false;
 		}
 		boolean aimsAtBlock = client.hitResult instanceof BlockHitResult block && block.getType() == HitResult.Type.BLOCK
 				&& (isInteractive(client.level.getBlockState(block.getBlockPos()), client, block)
 				|| dev.soulsmode.SoulsTools.usesOn(player, block, client.level.getBlockState(block.getBlockPos())));
-		// Holding a block aimed at another one places it: no nearby chest or bonfire takes the click.
+		// Holding a block aimed at another one places it: no nearby bonfire takes the click.
 		boolean places = player.getMainHandItem().getItem() instanceof BlockItem
 				&& client.hitResult instanceof BlockHitResult hit && hit.getType() == HitResult.Type.BLOCK;
 		if (!aimsAtBlock && !places && !useLatched && useNearby(client, player)) {
@@ -310,50 +340,12 @@ public final class AttackClient {
 	}
 
 	/**
-	 * Design choice, like the bonfire: the Souls camera does not aim the crosshair at low blocks, so the use key also
-	 * opens the closest block with a menu (chest, crafting table, furnace...) within {@link #REACH} blocks and in
-	 * sight, or rests at a closer lit campfire. Not while sneaking, so blocks can still be placed next to a chest.
-	 * Returns whether it did.
+	 * The use key rests at a nearby lit bonfire without aiming at it (SoulsBonfire.nearby). Blocks with a menu (chest,
+	 * crafting table, furnace...) open only when aimed at: the nearby opening was removed at the user's report
+	 * (2026-11-17: "los objetos interactivos están funcionando cuando no se les apunta"). Returns whether it rested.
 	 */
 	private static boolean useNearby(Minecraft client, LocalPlayer player) {
-		BlockPos bonfire = SoulsBonfire.nearby(player);
-		BlockHitResult menu = player.isShiftKeyDown() ? null : nearbyMenu(client, player);
-		if (bonfire != null && (menu == null
-				|| player.distanceToSqr(bonfire.getBottomCenter()) <= player.distanceToSqr(menu.getBlockPos().getBottomCenter()))) {
-			return dev.soulsmode.client.bonfire.BonfireClient.restNearby(player);
-		}
-		if (menu == null || dev.soulsmode.client.bonfire.BonfireClient.sitting()) {
-			return false;
-		}
-		InteractionResult result = client.gameMode.useItemOn(player, InteractionHand.MAIN_HAND, menu);
-		if (result.shouldSwing()) {
-			player.swing(InteractionHand.MAIN_HAND);
-		}
-		return result.consumesAction();
-	}
-
-	/** Design choice: how close a block with a menu must be for the use key to open it without aiming. */
-	private static final double REACH = 2.5;
-
-	/** The closest block with a menu in reach, as the hit of a ray from the eyes to its center (none if blocked). */
-	private static BlockHitResult nearbyMenu(Minecraft client, LocalPlayer player) {
-		BlockPos feet = player.blockPosition();
-		Vec3 eyes = player.getEyePosition();
-		BlockHitResult best = null;
-		double bestDistance = REACH * REACH;
-		for (BlockPos pos : BlockPos.betweenClosed(feet.offset(-2, -1, -2), feet.offset(2, 2, 2))) {
-			double distance = player.distanceToSqr(pos.getBottomCenter());
-			if (distance > bestDistance || !hasMenu(client.level.getBlockState(pos), client, pos)) {
-				continue;
-			}
-			BlockHitResult hit = client.level.clip(new ClipContext(eyes, pos.getCenter(), ClipContext.Block.OUTLINE,
-					ClipContext.Fluid.NONE, player));
-			if (hit.getType() == HitResult.Type.BLOCK && hit.getBlockPos().equals(pos)) {
-				best = hit;
-				bestDistance = distance;
-			}
-		}
-		return best;
+		return SoulsBonfire.nearby(player) != null && dev.soulsmode.client.bonfire.BonfireClient.restNearby(player);
 	}
 
 	private static boolean hasMenu(BlockState state, Minecraft client, BlockPos pos) {
@@ -396,6 +388,15 @@ public final class AttackClient {
 			}
 		}
 		boolean enabled = SoulsAttack.ENABLED && StaminaHud.soulsMode();
+		if (predicted != null && ++predictedTicks > PREDICT_TIMEOUT) {
+			// The server refused the press: undo the predicted start.
+			predicted = null;
+			if (current != null) {
+				SoulsAnimations.stop(player);
+				dev.soulsmode.client.anim.SwingClient.stopped(player.getId());
+				current = null;
+			}
+		}
 		while (HEAVY_KEY.consumeClick()) {
 			if (enabled) {
 				lastInput = HEAVY_KEY::isDown;
@@ -465,8 +466,44 @@ public final class AttackClient {
 			return;
 		}
 		double[] dir = RollClient.inputDirection(player);
-		ClientPlayNetworking.send(new AttackPayloads.Request(heavy, leftHand, (float) dir[0], (float) dir[1],
-				FlickInput.active()));
+		boolean flick = FlickInput.active();
+		boolean predicted = predict(player, heavy, leftHand, flick);
+		ClientPlayNetworking.send(new AttackPayloads.Request(heavy, leftHand, (float) dir[0], (float) dir[1], flick,
+				predicted));
+	}
+
+	/**
+	 * Plays at once what the server will start for a press from idle, when this client can tell which attack it is: one
+	 * hand, a weapon's plain light / heavy (no dash, roll, backstep, kick or jump attack, no guard, cast or bow). The
+	 * server may still answer with another action (a backstab, a riposte...), which then replaces it.
+	 */
+	private static boolean predict(LocalPlayer player, boolean heavy, boolean leftHand, boolean flick) {
+		if (current != null || flick || player.isSprinting() || RollClient.movementLocked(player) || !player.onGround()
+				|| dev.soulsmode.SoulsWater.shallow(player) || dev.soulsmode.SoulsWater.deep(player)
+				|| dev.soulsmode.client.anim.GripClient.grip(player) != Moveset.Grip.ONE_HANDED
+				|| leftHand && holdsTorch(player)) {
+			return false;
+		}
+		ItemStack held = leftHand ? player.getOffhandItem() : player.getMainHandItem();
+		if (held.getItem() instanceof net.minecraft.world.item.ProjectileWeaponItem) {
+			return false;
+		}
+		ResourceLocation movesetId = SoulsWeapons.movesetFor(held, leftHand);
+		if (leftHand && !held.isEmpty() && movesetId.equals(SoulsWeapons.DEFAULT)) {
+			return false;
+		}
+		Moveset moveset = SoulsWeapons.moveset(movesetId).orElse(null);
+		Moveset.Type type = Moveset.next(null, false, false, heavy, leftHand);
+		Attack attack = moveset == null ? null : moveset.attack(leftHand, false, type);
+		if (attack == null || attack.guard() || attack.isCast()) {
+			return false;
+		}
+		onStart(Minecraft.getInstance(), new AttackPayloads.Start(player.getId(), movesetId, leftHand, false,
+				type.ordinal(), player.getYRot()));
+		predicted = attack;
+		predictedType = type;
+		predictedTicks = 0;
+		return true;
 	}
 
 	/** Whether the player holds the DS2 torch, which replaces the left-hand item. */
@@ -477,6 +514,13 @@ public final class AttackClient {
 	/** The local attack's clip time after {@code t} ticks, with DS2's swing speed (SwingClient). */
 	private static float clip(LocalPlayer player, int t) {
 		return dev.soulsmode.client.anim.SwingClient.clipTime(player.getId(), current, t / 20f);
+	}
+
+	/** CancelControl_Avoid of the local player's attack (SoulsAttack.blocksDodge on the server). */
+	public static boolean blocksDodge() {
+		LocalPlayer player = Minecraft.getInstance().player;
+		return current != null && player != null && !current.guard() && clip(player, ticks) < current.duration()
+				&& current.blocksDodge(clip(player, ticks));
 	}
 
 	/** CancelControl_Move of the local player's attack. */

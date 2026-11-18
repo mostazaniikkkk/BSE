@@ -142,6 +142,27 @@ public final class SoulsWeapons {
 	}
 
 	/**
+	 * The moveset the stack attacks with in a hand: in the left hand a weapon whose own SpEffect has
+	 * {@code changeWeaponParam} (100110[04], dev.soulsmode.ds2.WeaponEffect) uses that other weapon row instead.
+	 */
+	public static ResourceLocation movesetFor(ItemStack stack, boolean leftHand) {
+		ResourceLocation id = movesetFor(stack);
+		if (!leftHand || id.equals(DEFAULT)) {
+			return id;
+		}
+		String key = SoulsContent.weapon(id) != null ? id.toString() : id.getPath();
+		dev.soulsmode.ds2.WeaponEffect effect = dev.soulsmode.ds2.WeaponEffect.of(key);
+		if (effect == null || effect.leftWeapon() == null) {
+			return id;
+		}
+		ResourceLocation other = effect.leftWeapon().contains(":") ? ResourceLocation.tryParse(effect.leftWeapon())
+				: dev.soulsmode.SoulsMode.id(effect.leftWeapon());
+		synchronized (SoulsWeapons.class) {
+			return other != null && (MOVESETS.containsKey(other) || SoulsContent.weapon(other) != null) ? other : id;
+		}
+	}
+
+	/**
 	 * Order: the stack's {@code soulsmode:weapon} component, a datapack binding of its item or tag, then the resolvers,
 	 * item and tag assignments made in code.
 	 */

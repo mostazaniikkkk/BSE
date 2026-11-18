@@ -1,0 +1,9 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    {"item": "minecraft:bone"},
+    {"tag": "soulsmode:souls"}
+  ],
+  "result": {"count": 1, "id": "soulsmode:homeward_bone"}
+}

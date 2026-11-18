@@ -107,7 +107,11 @@ public final class SoulsPoise {
 
 	/** FUN_140145a40's maximum for this player. */
 	public static float max(ServerPlayer player) {
-		var stats = SoulsPlayer.data(player).map(SoulsData::toAttributes).orElse(null);
+		return max(player, SoulsPlayer.data(player).map(SoulsData::toAttributes).orElse(null));
+	}
+
+	/** The maximum poise of these stats with the entity's worn armour (also the level-up preview on the client). */
+	public static float max(net.minecraft.world.entity.LivingEntity player, dev.soulsmode.ds2.Attributes stats) {
 		if (stats == null) {
 			return Poise.base();
 		}
@@ -193,7 +197,7 @@ public final class SoulsPoise {
 			clip = SoulsRoll.currentClip(player);
 		}
 		// b8+0x7d0: WeaponParam +0xb8 of the swinging weapon while its TAE 111900 runs (FUN_14034e6f0).
-		float factor = clip != null && clip.weapon() != null && Poise.poiseFactorWindow(clip.taeId(), clip.t())
+		float factor = clip != null && clip.weapon() != null && clip.poiseFactorWindow()
 				? Poise.attackPoiseFactor(clip.weapon()) : 0;
 		float damage = hit.poiseDamage() * (factor > 0 ? factor : 1);
 		s.poise = Math.max(0, Math.min(max(player), s.poise - damage));
@@ -201,8 +205,7 @@ public final class SoulsPoise {
 		if (hit.rule() == 2 || hit.rule() == 1 && factor <= 0) {
 			withPoise = false;
 		}
-		boolean superArmor = clip != null && (Poise.noReaction(clip.taeId(), clip.t())
-				|| Poise.superArmor(clip.taeId(), clip.t()) && hit.rule() != 2);
+		boolean superArmor = clip != null && (clip.noReaction() || clip.superArmor() && hit.rule() != 2);
 		int reaction = superArmor ? 0 : hit.reaction() == KICK ? 2 : withPoise ? 1 : hit.remapped();
 		if (Boolean.getBoolean("soulsmode.qa")) {
 			SoulsMode.LOGGER.info("[BSE QA] poise hit {} -> {} / {} (rule {}, factor {}, clip {}) reaction {}", damage,

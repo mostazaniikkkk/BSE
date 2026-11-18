@@ -1,6 +1,7 @@
 {
   "replace": false,
   "values": [
-    "soulsmode:souls_attack"
+    "soulsmode:souls_attack",
+    "soulsmode:petrified"
   ]
 }

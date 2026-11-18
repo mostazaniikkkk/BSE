@@ -45,6 +45,9 @@ public final class Ds2Damage {
 	private static Map<String, ArmorUpgrade[]> armorUpgrades;
 	/** Per armour set and piece: bleed resistance at +0 and at the max level (bleed.md section 2). */
 	private static Map<String, float[][]> armorBleed;
+	/** Petrification / curse resistance per set and slot: {+0, max} (ARP +0x28 / +0x58, +0x2c / +0x5c). */
+	private static Map<String, float[][]> armorPetrify;
+	private static Map<String, float[][]> armorCurse;
 
 	/**
 	 * One infusion of a weapon (docs/research/titanite.md section 4): the element its amount is added to (0 physical, 1
@@ -59,7 +62,15 @@ public final class Ds2Damage {
 	 * (ReinforceCostParam), the CustomAttrSpecParam mask (bit i = infusion i allowed) and the infusions 0..9 (null =
 	 * no WSA row).
 	 */
-	public record WeaponUpgrade(int[][] cost, int infusionMask, Infusion[] infusions, float mundaneFactor) {
+	public record WeaponUpgrade(int[][] cost, int infusionMask, Infusion[] infusions, float mundaneFactor,
+			String[] materialItems) {
+		/**
+		 * The Minecraft item id a datapack gave as the material of cost row {@code row} (docs/datapacks.md: the row's
+		 * material may be an item id instead of a DS2 ItemParam id), or null for a DS2 id.
+		 */
+		public String materialItem(int row) {
+			return materialItems == null || row >= materialItems.length ? null : materialItems[row];
+		}
 	}
 
 	/** An armour piece's reinforcement (ArmorReinforceParam): max level, its values at the max, and the cost rows. */
@@ -101,11 +112,15 @@ public final class Ds2Damage {
 			armor = new LinkedHashMap<>();
 			armorUpgrades = new LinkedHashMap<>();
 			armorBleed = new LinkedHashMap<>();
+			armorPetrify = new LinkedHashMap<>();
+			armorCurse = new LinkedHashMap<>();
 			for (Map.Entry<String, JsonElement> e : json.getAsJsonObject("armor").entrySet()) {
 				JsonArray pieces = e.getValue().getAsJsonArray();
 				Piece[] out = new Piece[pieces.size()];
 				ArmorUpgrade[] ups = new ArmorUpgrade[pieces.size()];
 				float[][] bleed = new float[pieces.size()][];
+				float[][] petrify = new float[pieces.size()][];
+				float[][] curse = new float[pieces.size()][];
 				for (int i = 0; i < out.length; i++) {
 					if (!pieces.get(i).isJsonNull()) {
 						JsonObject p = pieces.get(i).getAsJsonObject();
@@ -113,6 +128,11 @@ public final class Ds2Damage {
 								floats(p.getAsJsonArray("absorption")));
 						if (p.has("bleedAbsorption")) {
 							bleed[i] = new float[] {p.get("bleedAbsorption").getAsFloat(), p.get("bleedAbsorptionMax").getAsFloat()};
+						}
+						if (p.has("petrifyAbsorption")) {
+							petrify[i] = new float[] {p.get("petrifyAbsorption").getAsFloat(),
+									p.get("petrifyAbsorptionMax").getAsFloat()};
+							curse[i] = new float[] {p.get("curseAbsorption").getAsFloat(), p.get("curseAbsorptionMax").getAsFloat()};
 						}
 						if (p.has("maxLevel")) {
 							ups[i] = new ArmorUpgrade(p.get("maxLevel").getAsInt(), floats(p.getAsJsonArray("defenceMax")),
@@ -123,6 +143,8 @@ public final class Ds2Damage {
 				armor.put(e.getKey(), out);
 				armorUpgrades.put(e.getKey(), ups);
 				armorBleed.put(e.getKey(), bleed);
+				armorPetrify.put(e.getKey(), petrify);
+				armorCurse.put(e.getKey(), curse);
 			}
 		} catch (IOException ex) {
 			throw new UncheckedIOException(ex);
@@ -163,24 +185,47 @@ public final class Ds2Damage {
 			infusions[i] = new Infusion(o.get("element").getAsInt(), o.get("amount").getAsFloat(), o.get("scale").getAsFloat(),
 					coef);
 		}
-		return new WeaponUpgrade(costRows(a.getAsJsonArray("reinforceCost")),
-				a.has("infusionMask") ? a.get("infusionMask").getAsInt() : 1, infusions,
-				a.has("mundaneFactor") ? a.get("mundaneFactor").getAsFloat() : 1);
+		JsonArray rows = a.getAsJsonArray("reinforceCost");
+		String[] items = new String[rows.size()];
+		boolean any = false;
+		for (int i = 0; i < items.length; i++) {
+			JsonElement m = rows.get(i).getAsJsonArray().get(1);
+			if (m.isJsonPrimitive() && m.getAsJsonPrimitive().isString()) {
+				items[i] = net.minecraft.resources.ResourceLocation.parse(m.getAsString()).toString();
+				any = true;
+			}
+		}
+		return new WeaponUpgrade(costRows(rows), a.has("infusionMask") ? a.get("infusionMask").getAsInt() : 1, infusions,
+				a.has("mundaneFactor") ? a.get("mundaneFactor").getAsFloat() : 1, any ? items : null);
 	}
 
 	private static int[][] costRows(JsonArray rows) {
 		int[][] out = new int[rows.size()][];
 		for (int i = 0; i < out.length; i++) {
 			JsonArray r = rows.get(i).getAsJsonArray();
-			out[i] = new int[] {r.get(0).getAsInt(), r.get(1).getAsInt(), r.get(2).getAsInt()};
+			// A datapack's item id as the material (WeaponUpgrade.materialItem) is -1 here.
+			JsonElement m = r.get(1);
+			int material = m.isJsonPrimitive() && m.getAsJsonPrimitive().isString() ? -1 : m.getAsInt();
+			out[i] = new int[] {r.get(0).getAsInt(), material, r.get(2).getAsInt()};
 		}
 		return out;
 	}
 
-	/** A built-in weapon's reinforcement and infusions, or null (datapack weapons, fists...). */
+	/** A weapon's reinforcement and infusions (built-in or datapack), or null (fists, a weapon without the rows...). */
 	public static WeaponUpgrade upgrade(String key) {
+		WeaponUpgrade u = packUpgrades.get(key);
+		if (u != null) {
+			return u;
+		}
 		weapons();
 		return upgrades.get(key);
+	}
+
+	/** Datapack weapons' reinforcement and infusions by full id (SoulsContent), replaced on reload. */
+	private static volatile Map<String, WeaponUpgrade> packUpgrades = Map.of();
+
+	public static void setPackUpgrades(Map<String, WeaponUpgrade> upgrades) {
+		packUpgrades = Map.copyOf(upgrades);
 	}
 
 	/** An armour set's piece reinforcement (slot 0 head, 1 chest, 2 arms, 3 legs), or null. */
@@ -216,7 +261,26 @@ public final class Ds2Damage {
 	 */
 	public static float pieceBleed(String set, int slot, float level) {
 		weapons();
-		float[][] b = set == null ? null : armorBleed.get(set);
+		return pieceStatus(armorBleed, set, slot, level);
+	}
+
+	/**
+	 * Petrification ({@code curse} false) or curse resistance of an armour piece at a reinforcement level
+	 * (petrification.md section 1.2: ARP +0x28 / +0x2c lerp to +0x58 / +0x5c by level / ARP +0x60, x 0.01).
+	 */
+	public static float pieceStatus(boolean curse, String set, int slot, float level) {
+		weapons();
+		return pieceStatus(curse ? armorCurse : armorPetrify, set, slot, level);
+	}
+
+	/** The stats' petrification / curse resistance: PSPL f32 +0x50 of floor((3 Adp + Vgr) / 4), +0x54 of (3 Adp + Att) / 4. */
+	public static float statusStatAbsorption(boolean curse, Attributes stats) {
+		int other = stats.get(curse ? Attributes.ATTUNEMENT : Attributes.VIGOR);
+		return bonus(curse ? "absorbCurse" : "absorbPetrify", (3 * stats.get(Attributes.ADAPTABILITY) + other) / 4) * 0.01f;
+	}
+
+	private static float pieceStatus(Map<String, float[][]> table, String set, int slot, float level) {
+		float[][] b = set == null ? null : table.get(set);
 		float[] v = b == null ? null : b[slot];
 		if (v == null) {
 			return 0;
@@ -420,8 +484,18 @@ public final class Ds2Damage {
 	/** With the weapon's infusion (0 none .. 9, titanite.md section 4). */
 	public static float[] attackRating(String weapon, float level, int infusion, Attributes stats, boolean twoHanded,
 			boolean leftHand, int resinType, float staminaLack, float[] buffAttack, float[] buffSplit) {
+		return attackRating(weapon, level, infusion, stats, twoHanded, leftHand, resinType, staminaLack, buffAttack,
+				buffSplit, 1);
+	}
+
+	/**
+	 * With the weapon's own SpEffect factor on S ({@code statFactor}: 1000[14] / 1000[15] of ItemParam +0x04,
+	 * FUN_140391020 multiplies the stat part only, docs/research/weapons.md "Efecto del arma").
+	 */
+	public static float[] attackRating(String weapon, float level, int infusion, Attributes stats, boolean twoHanded,
+			boolean leftHand, int resinType, float staminaLack, float[] buffAttack, float[] buffSplit, float statFactor) {
 		float[][] parts = attackParts(weapon, level, infusion, stats, twoHanded, leftHand, resinType, staminaLack, buffAttack,
-				buffSplit);
+				buffSplit, statFactor);
 		float[] out = new float[TYPES];
 		for (int i = 0; i < TYPES; i++) {
 			out[i] = Math.max(0, parts[0][i] + parts[1][i]);
@@ -477,6 +551,13 @@ public final class Ds2Damage {
 	 */
 	public static float[][] attackParts(String weapon, float level, int infusion, Attributes stats, boolean twoHanded,
 			boolean leftHand, int resinType, float staminaLack, float[] buffAttack, float[] buffSplit) {
+		return attackParts(weapon, level, infusion, stats, twoHanded, leftHand, resinType, staminaLack, buffAttack,
+				buffSplit, 1);
+	}
+
+	/** With the weapon's own SpEffect factor on S (see attackRating). */
+	public static float[][] attackParts(String weapon, float level, int infusion, Attributes stats, boolean twoHanded,
+			boolean leftHand, int resinType, float staminaLack, float[] buffAttack, float[] buffSplit, float statFactor) {
 		WeaponData w = weapon(weapon);
 		float[][] out = new float[2][TYPES];
 		if (w == null) {
@@ -538,6 +619,8 @@ public final class Ds2Damage {
 			if (buffSplit != null) {
 				m[i] += buffSplit[i];
 			}
+			// The weapon's SpEffect attack-rate (code 8) multiplies S only, not the base (FUN_140391020).
+			s[i] *= statFactor;
 		}
 		// Requirements (Strength halved two-handed) and the lack penalty.
 		int reqStr = twoHanded ? w.requirements()[0] / 2 : w.requirements()[0];

@@ -32,9 +32,26 @@ public final class SoulsRoll {
 	}
 
 	public static void onRequest(ServerPlayer player, RollPayloads.Request request) {
-		if (!ENABLED || !SoulsGameMode.isActive(player) || isRerollLocked(player) || !player.onGround()
-				|| SoulsAttack.isVictim(player)
-				|| SoulsAttack.blocksDodge(player) || SoulsPoise.blocksDodge(player)) {
+		Object before = token(player);
+		handleRequest(player, request);
+		if (token(player) != before) {
+			SoulsInputBuffer.started(player);
+		}
+	}
+
+	/** The current dodge object, to tell whether a request started a new one (SoulsInputBuffer). */
+	static Object token(ServerPlayer player) {
+		return ACTIVE.get(player.getUUID());
+	}
+
+	private static void handleRequest(ServerPlayer player, RollPayloads.Request request) {
+		if (!ENABLED || !SoulsGameMode.isActive(player) || !player.onGround() || SoulsAttack.isVictim(player)
+				|| SoulsPoise.blocksDodge(player)) {
+			return;
+		}
+		if (isRerollLocked(player) || SoulsAttack.blocksDodge(player)) {
+			// CancelControl_Avoid of the dodge or attack: kept if its InputControl records it (SoulsInputBuffer).
+			SoulsInputBuffer.dodgeRefused(player, request);
 			return;
 		}
 		// FUN_140367ea0: no dodge request is sent with stamina <= 0.
@@ -72,7 +89,13 @@ public final class SoulsRoll {
 		// holds each piece's requirements is not confirmed (agility.md), and Minecraft's armour has none.
 		float iframes = stats == null ? 0 : dev.soulsmode.ds2.Agility.iframeFraction(kind.isRoll(), stats, 0,
 				dev.soulsmode.ds2.Agility.staminaLack(stamina == null ? cost : stamina.current(), cost));
-		ACTIVE.put(player.getUUID(), new Active(kind, player.serverLevel().getGameTime(), speed, iframes));
+		// Latency compensation (the user's choice, 2026-11-10): the client already plays this dodge from the press, so it
+		// is dated from the press, half the round trip ago; its DS2 i-frames line up with the roll the player sees.
+		long startTick = player.serverLevel().getGameTime();
+		if (request.predicted()) {
+			startTick -= Math.round(player.connection.latency() / 2f / 50f);
+		}
+		ACTIVE.put(player.getUUID(), new Active(kind, startTick, speed, iframes));
 		// The clip's TAE event 300 makes the dodge's sound (SoulsPerception).
 		SoulsPerception.onDodge(player, kind, speed);
 		// FUN_140328d10 charges the cost computed at the request as the Morpheme state is entered.
@@ -143,7 +166,7 @@ public final class SoulsRoll {
 			return null;
 		}
 		float t = seconds(player, active);
-		return t < active.kind().duration ? new SoulsAttack.Clip(active.kind().taeId(), t, null) : null;
+		return t < active.kind().duration ? new SoulsAttack.Clip(active.kind().taeId(), t, null, null) : null;
 	}
 
 	public static void forget(ServerPlayer player) {

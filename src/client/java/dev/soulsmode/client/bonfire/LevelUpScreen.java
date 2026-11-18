@@ -16,7 +16,9 @@ import java.util.List;
 
 /**
  * The level-up screen. Rows and their order come from FUN_1400c7a80 (level, then the slots 0 1 2 3 4 5 8 6 7) and
- * the +/- / confirm rules from {@link LevelUpMenu}; the layout and colours are design choices.
+ * the +/- / confirm rules from {@link LevelUpMenu}. The stats beside them are DS2's grid (FUN_1400cc620, docs/research/
+ * stats.md "Pantalla de subir nivel"): 3 columns x 13 rows, every cell "current ⇒ preview" with the previewed
+ * attributes and the same equipment. The layout and colours are design choices.
  */
 public final class LevelUpScreen extends Screen {
 	/** FUN_1400c7a80: row -> attribute slot. */
@@ -49,7 +51,7 @@ public final class LevelUpScreen extends Screen {
 	@Override
 	protected void init() {
 		rowButtons.clear();
-		left = (width - PANEL_WIDTH) / 2;
+		left = Math.max(12, (width - (178 + GAP + gridWidth())) / 2 + 8);
 		top = Math.max(26, (height - (5 + ROW_SLOTS.length) * LINE) / 2 + 6);
 		int rowTop = top + 5 * LINE;
 		for (int row = 0; row < ROW_SLOTS.length; row++) {
@@ -65,13 +67,13 @@ public final class LevelUpScreen extends Screen {
 			}).bounds(left + 150, y, 12, 12).build());
 			rowButtons.add(new Button[] {minus, plus});
 		}
-		// Confirm and back go under the stats panel, so the screen fits a small window.
-		int buttonsY = top + 10 * LINE + 10;
+		// Confirm and back go under the attributes panel, so the screen fits a small window.
+		int buttonsY = top + (5 + ROW_SLOTS.length) * LINE + 8;
 		confirm = addRenderableWidget(Button.builder(Component.translatable("gui.soulsmode.level_up.confirm"),
 				b -> ClientPlayNetworking.send(new BonfirePayloads.LevelUp(attributesList())))
-				.bounds(left + 180, buttonsY, 146, 20).build());
+				.bounds(left - 8, buttonsY, 88, 20).build());
 		addRenderableWidget(Button.builder(Component.translatable("gui.soulsmode.level_up.back"), b -> onClose())
-				.bounds(left + 180, buttonsY + 24, 146, 20).build());
+				.bounds(left + 82, buttonsY, 88, 20).build());
 		refresh();
 	}
 
@@ -99,7 +101,9 @@ public final class LevelUpScreen extends Screen {
 		renderTransparentBackground(graphics);
 		int bottom = top + (5 + ROW_SLOTS.length) * LINE + 2;
 		panel(graphics, left - 8, top - 8, left + 170, bottom);
-		panel(graphics, left + 180, top + 5 * LINE - 8, left + 326, top + 10 * LINE + 2);
+		float g = gridScale();
+		panel(graphics, gridX() - 8, top - 8, gridX() + (int) Math.ceil(gridWidth() * g) + 8,
+				top + (int) Math.ceil(13 * GRID_LINE * g) + 2);
 	}
 
 	public static void panel(GuiGraphics graphics, int x0, int y0, int x1, int y1) {
@@ -127,21 +131,146 @@ public final class LevelUpScreen extends Screen {
 			y += LINE;
 		}
 
-		DerivedStats before = DerivedStats.compute(menu.original(), Ds2Data.physicalStats());
-		DerivedStats after = DerivedStats.compute(attributes, Ds2Data.physicalStats());
-		int x = left + 188;
-		y = top + 5 * LINE;
-		derived(graphics, "gui.soulsmode.level_up.hp", before.maxHp(), after.maxHp(), x, y);
-		derived(graphics, "gui.soulsmode.level_up.stamina", (int) before.maxStamina(), (int) after.maxStamina(), x, y += LINE);
-		graphics.drawString(font, Component.translatable("gui.soulsmode.level_up.equip_load"), x, y += LINE, LABEL);
-		String load = String.format("%.1f", after.maxEquipLoad());
-		graphics.drawString(font, load, x + 130 - font.width(load), y,
-				after.maxEquipLoad() != before.maxEquipLoad() ? CHANGED : TEXT);
-		derived(graphics, "gui.soulsmode.level_up.attunement_slots", before.attunementSlots(), after.attunementSlots(),
-				x, y += LINE);
-		// FUN_1400cc620 row 0xb (common.fmg 909038): MenuStatsParam[(ATN + 3 ADP) / 4] +0x32, current and preview.
-		derived(graphics, "gui.soulsmode.level_up.agility", dev.soulsmode.ds2.Agility.shown(menu.original()),
-				dev.soulsmode.ds2.Agility.shown(attributes), x, y + LINE);
+		grid(graphics, menu.original(), attributes);
+	}
+
+	private static final int GAP = 10;
+	private static final int GRID_LINE = 11;
+	private static final int COLUMN_GAP = 8;
+	/** Column 2 (FUN_1400cc620 with struct B): R weapon 1 (row 0), L weapon 1 (row 4), strike / slash / thrust, poise. */
+	private static final int[] COLUMN2_LABELS = {909043, 0, 0, 0, 909040, 0, 0, 0, 0, 909046, 909047, 909048, 909049};
+
+	private int labelWidth() {
+		int w = 0;
+		for (int id : allLabels()) {
+			w = Math.max(w, font.width(Component.translatable("gui.soulsmode.levelup." + id)));
+		}
+		return w;
+	}
+
+	private List<Integer> allLabels() {
+		List<Integer> ids = new ArrayList<>();
+		for (var c : dev.soulsmode.ds2.MenuStats.COLUMN0) {
+			ids.add(c.label());
+		}
+		for (var c : dev.soulsmode.ds2.MenuStats.COLUMN1) {
+			if (c.label() != 0) {
+				ids.add(c.label());
+			}
+		}
+		for (int id : COLUMN2_LABELS) {
+			if (id != 0) {
+				ids.add(id);
+			}
+		}
+		return ids;
+	}
+
+	private int columnWidth() {
+		return labelWidth() + 6 + font.width("9999.9 " + Component.translatable("gui.soulsmode.levelup.arrow").getString()
+				+ " 9999.9");
+	}
+
+	private int gridWidth() {
+		return 3 * columnWidth() + 2 * COLUMN_GAP;
+	}
+
+	private int gridX() {
+		return left + 170 + GAP;
+	}
+
+	/** The grid shrinks to fit narrow windows. */
+	private float gridScale() {
+		return Math.min(1f, (width - gridX() - 12) / (float) gridWidth());
+	}
+
+	/** DS2's 39 cells: current ⇒ preview, the preview highlighted when it changes. */
+	private void grid(GuiGraphics graphics, Attributes before, Attributes after) {
+		var player = minecraft.player;
+		if (player == null) {
+			return;
+		}
+		var physical = Ds2Data.physicalStats();
+		float g = gridScale();
+		graphics.pose().pushPose();
+		graphics.pose().translate(gridX(), top, 0);
+		graphics.pose().scale(g, g, 1);
+		int colW = columnWidth() + COLUMN_GAP;
+		var c0 = dev.soulsmode.ds2.MenuStats.COLUMN0;
+		var c1 = dev.soulsmode.ds2.MenuStats.COLUMN1;
+		float statPoiseBefore = dev.soulsmode.ds2.Poise.statPoise(before) + dev.soulsmode.ds2.Poise.base();
+		float statPoiseAfter = dev.soulsmode.ds2.Poise.statPoise(after) + dev.soulsmode.ds2.Poise.base();
+		for (int row = 0; row < 13; row++) {
+			int y = row * GRID_LINE;
+			cell(graphics, 0, y, c0[row].label(), dev.soulsmode.ds2.MenuStats.column0(row, before, physical),
+					dev.soulsmode.ds2.MenuStats.column0(row, after, physical), c0[row].decimal());
+			if (c1[row].label() != 0) {
+				cell(graphics, colW, y, c1[row].label(), dev.soulsmode.ds2.MenuStats.column1(row, before, statPoiseBefore),
+						dev.soulsmode.ds2.MenuStats.column1(row, after, statPoiseAfter), c1[row].decimal());
+			}
+			if (COLUMN2_LABELS[row] != 0) {
+				cell(graphics, 2 * colW, y, COLUMN2_LABELS[row], column2(row, player, before),
+						column2(row, player, after), row == 12);
+			}
+		}
+		graphics.pose().popPose();
+	}
+
+	/**
+	 * Column 2 with the worn equipment: a weapon's attack (sum of physical, magic, lightning, fire and dark, struct B via
+	 * FUN_1402019f0), the physical defence per type with the armour (FUN_140201780: Σ ArmorReinforceParam subtype 2 / 0 /
+	 * 1 + Σ ArmorParam +0x1c x the stats' Phys DEF) and the poise with the armour.
+	 */
+	private float column2(int row, net.minecraft.client.player.LocalPlayer player, Attributes a) {
+		switch (row) {
+			case 0, 4 -> {
+				boolean leftHand = row == 4;
+				var stack = leftHand ? player.getOffhandItem() : player.getMainHandItem();
+				String key = dev.soulsmode.SoulsAttack.damageKey(dev.soulsmode.api.SoulsWeapons.movesetFor(stack, leftHand));
+				if (dev.soulsmode.ds2.Ds2Damage.weapon(key) == null) {
+					return 0;
+				}
+				boolean twoHanded = dev.soulsmode.client.anim.GripClient.grip(player).twoHanded();
+				float[][] parts = dev.soulsmode.ds2.Ds2Damage.attackParts(key, dev.soulsmode.SoulsAttack.upgradeLevel(stack),
+						dev.soulsmode.SoulsUpgrade.infusion(stack), a, twoHanded, leftHand, -1, 0, null, null);
+				float sum = 0;
+				for (int i = 0; i < 5; i++) {
+					sum += (int) Math.max(0, parts[0][i] + parts[1][i]);
+				}
+				return sum * dev.soulsmode.SoulsAttack.itemFactor(stack);
+			}
+			case 9, 10, 11 -> {
+				int subtype = row == 9 ? 2 : row == 10 ? 0 : 1;
+				float factor = 0;
+				float armour = 0;
+				for (var piece : dev.soulsmode.SoulsAttack.armorPieces(player)) {
+					if (piece != null) {
+						factor += piece.factor();
+						armour += piece.defence()[subtype];
+					}
+				}
+				return armour + factor * dev.soulsmode.ds2.MenuStats.physicalDefence(a);
+			}
+			case 12 -> {
+				return dev.soulsmode.SoulsPoise.max(player, a);
+			}
+			default -> {
+				return Float.NaN;
+			}
+		}
+	}
+
+	private void cell(GuiGraphics graphics, int x, int y, int label, float before, float after, boolean decimal) {
+		graphics.drawString(font, Component.translatable("gui.soulsmode.levelup." + label), x, y, LABEL);
+		String b = decimal ? String.format("%.1f", before) : String.valueOf((int) before);
+		String a = decimal ? String.format("%.1f", after) : String.valueOf((int) after);
+		String arrow = " " + Component.translatable("gui.soulsmode.levelup.arrow").getString() + " ";
+		int right = x + columnWidth();
+		int ax = right - font.width(a);
+		graphics.drawString(font, a, ax, y, a.equals(b) ? TEXT : CHANGED);
+		int arx = ax - font.width(arrow);
+		graphics.drawString(font, arrow, arx, y, LABEL);
+		graphics.drawString(font, b, arx - font.width(b), y, TEXT);
 	}
 
 	private void line(GuiGraphics graphics, String key, String value, int y, int color) {

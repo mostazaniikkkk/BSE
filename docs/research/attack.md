@@ -59,7 +59,7 @@ El evento 101100 (bloqueo de regen de estamina) va de 0 a 1.5 s en los ligeros y
     del mismo peso, sigue la cadena; si no, empieza la cadena desde el principio.
   - La esquiva se rechaza dentro de `CancelControl_Avoid`; fuera de esa ventana corta el ataque.
   - El ataque se rechaza dentro de las ventanas de ataque de la esquiva y, si entra, la corta.
-- **Sin búfer de entrada** (2026-11-01): una pulsación durante el bloqueo de cancelación se descarta. El búfer de DS2
+- **Sin búfer de entrada** (2026-11-01, **ya resuelto: ver "Búfer de entrada" abajo**): una pulsación durante el bloqueo de cancelación se descarta. El búfer de DS2
   (pista `InputControl` del nmb) no está descifrado; el que había era inventado y se quitó.
 - **Cliente**:
   - Sin movimiento, salto ni giro durante `CancelControl_Move`.
@@ -118,3 +118,31 @@ El evento 101100 (bloqueo de regen de estamina) va de 0 a 1.5 s en los ligeros y
 - **Comer** (decisión de diseño): con comida en la mano principal, el clic derecho es el uso vanilla.
   Con un arma en la mano principal y comida en la izquierda, también come, siempre que el jugador pueda comer
   (con hambre o comida que siempre se puede comer). Si no, hace el ataque fuerte, que también sigue en `R`.
+
+
+## Búfer de entrada (decodificado 2026-11-10; antes "Sin búfer de entrada")
+Investigación de un agente de solo lectura; archivos en `D:\Reversing\DS2\out\inputbuf\` (`pad.c`, `pad2.c`,
+`dis_8900.txt`, `py\tracks.py`, `py\win.py`).
+- **Un solo comando guardado**: `ChrPadManipulator +0xc0` (código) y `+0xc4` (tiempo) en `FUN_140368900`, que corre
+  cada frame desde `FUN_140367750`. Al guardar: `+0xc4 = PlayerCommonParam` fila 0 **`+0x64` = 1.5 s**; cada frame
+  `+0xc4 -= dt` y a 0 se borra. Una pulsación nueva que se guarda reemplaza a la anterior.
+- **Cuándo se guarda**: pista del nmb `InputControl` (canal 80, userData 37 → `b8+0x4d8`): todo (ataques, esquiva,
+  cambio de arma, objeto, interactuar); `InputControl_Attack` (userData 42 → `b8+0x4dc`): solo ataques;
+  `ItemUseInputControl` (canal 900, 930): repetir el uso de objeto. Un ataque ligero se guarda si
+  `CancelControl_Attack1L` sigue activo, uno fuerte si `CancelControl_Attack1H` (códigos 1..4, la mano derecha pisa a
+  la izquierda); la esquiva (5 rodada / 6 paso atrás) al **soltar** el botón con `CancelControl_Avoid` activo.
+- **Cuándo se ejecuta**: `FUN_140367b60` (ataques) y `FUN_140367ea0` (esquiva) lo vuelven a pedir cada frame; sale el
+  primer frame en que el bloqueo lo permite (`FUN_140396070`), y se borra. Una pulsación nueva aceptada también lo
+  borra.
+- Ventanas reales: rodada 120020 `InputControl_Attack` 0.033–0.667 y `InputControl` 0.5–1.533 (un ataque apretado
+  durante la rodada sale a 0.5 s el ligero / 0.9 s el fuerte); parry `a45_01_0290` `InputControl` 0.467–1.5; ataque
+  de puños 20010010 `InputControl` 0.382–1.765 (antes de 0.382 se pierde).
+- Exportado: `weapons.json → inputBufferSeconds` y `inputControl` ({id TAE: {all, attack}}, `weapons.py input_control`).
+- **En el mod** (`SoulsInputBuffer`): ataques, guardias, usos de objeto y esquivas de `SoulsAttack` / `SoulsRoll`. Una
+  pulsación rechazada por el bloqueo de la acción actual se guarda si cae en su ventana; se reintenta cada tick y se
+  descarta a los 1.5 s.
+- **No portado** (backlog): la ventana de las reacciones al daño (`SoulsPoise`, `InputControl` 0.5–1.333), los
+  comandos 7..0xe (objeto, cambio de arma, interactuar) y el de repetir objeto (8). La esquiva del mod se pide al
+  apretar, no al soltar.
+- **Sin confirmar**: qué botones son los bits 7, 8, 10, 11 y 15 de `+0x128`; qué son las peticiones 1–8 / 0x10 de
+  `FUN_140366080`; dónde se lee `CancelControl_Guard`; el camino de red.

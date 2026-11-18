@@ -48,6 +48,18 @@ public final class SoulsBlocks {
 	public static final net.minecraft.world.level.block.Block TITANITE_BLOCK = Registry.register(BuiltInRegistries.BLOCK,
 			SoulsMode.id("titanite_block"), new net.minecraft.world.level.block.Block(titaniteProperties()));
 
+	/**
+	 * The covenant altars (CovenantAltarBlock), by DS2 covenant id. BSE keeps only the Way of Blue (the user, 2026-11-10:
+	 * a small totem; the other covenants and their full DS2 sites go to DarkTwo).
+	 */
+	public static final CovenantAltarBlock WAY_OF_BLUE_ALTAR = altar("way_of_blue_altar", 4);
+
+	private static CovenantAltarBlock altar(String name, int covenant) {
+		return Registry.register(BuiltInRegistries.BLOCK, SoulsMode.id(name), new CovenantAltarBlock(covenant,
+				BlockBehaviour.Properties.of().mapColor(MapColor.STONE).strength(-1.0f, 3600000.0f).noLootTable()
+						.noOcclusion().sound(SoundType.STONE)));
+	}
+
 	/** Iron-block-like properties: any pickaxe mines it (mineable/pickaxe, no tier tag). */
 	private static BlockBehaviour.Properties titaniteProperties() {
 		return BlockBehaviour.Properties.of()

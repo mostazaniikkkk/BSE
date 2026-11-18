@@ -41,7 +41,8 @@ import static org.squiddev.cobalt.ValueFactory.varargsOf;
 /**
  * Lua scripts of datapack spells (docs/datapacks.md, "Scripts"): {@code data/<ns>/soulsmode/script/<name>.lua}, named
  * by a spell's {@code "script"}. Server only. Each script has its own Lua state (Cobalt) with the base, string, table,
- * math and coroutine libraries and nothing that reaches files, the OS or Java; every call has a time budget.
+ * math and coroutine libraries and nothing that reaches files, the OS or Java; every call has a time budget and runs on
+ * its own Lua thread, so a call that ends in an error leaves nothing behind in the state.
  * <p>
  * Hooks (global functions, all optional): {@code on_cast()} at each bullet event of the cast animation (after the
  * spell's own bullet, if it has one), {@code on_hit(target, bullet)} when one of the spell's bullets hits a character,
@@ -51,6 +52,16 @@ import static org.squiddev.cobalt.ValueFactory.varargsOf;
 public final class SoulsScripts {
 	/** Longest a hook may run before it is stopped (a script stuck in a loop must not freeze the server). */
 	private static final long BUDGET_MS = 50;
+
+	/**
+	 * Stops a script that ran out of time. Not a LuaError on purpose: Lua's pcall / xpcall / coroutine.resume catch
+	 * LuaErrors, so a script could swallow the stop and keep the server waiting; nothing in Lua catches this.
+	 */
+	private static final class Timeout extends Error {
+		Timeout() {
+			super("script ran longer than " + BUDGET_MS + " ms", null, false, false);
+		}
+	}
 	private static final ScheduledExecutorService WATCHDOG = Executors.newSingleThreadScheduledExecutor(r -> {
 		Thread t = new Thread(r, "BSE Lua watchdog");
 		t.setDaemon(true);
@@ -74,7 +85,10 @@ public final class SoulsScripts {
 
 	private static final class Script {
 		final LuaState state;
+		/** System.nanoTime() after which the running call is stopped. */
 		volatile long deadline;
+		/** Calls of this script in progress (a hook that sets off another hook of the same script). */
+		int depth;
 
 		Script(LuaState state) {
 			this.state = state;
@@ -101,7 +115,7 @@ public final class SoulsScripts {
 	}
 
 	/** Whether a script compiled and its top level ran (tests, the reload log). */
-	static synchronized boolean loaded(ResourceLocation id) {
+	public static synchronized boolean loaded(ResourceLocation id) {
 		return SCRIPTS.containsKey(id);
 	}
 
@@ -114,8 +128,8 @@ public final class SoulsScripts {
 	private static Script compile(ResourceLocation id, String source) throws Exception {
 		Script[] holder = new Script[1];
 		LuaState state = LuaState.builder().interruptHandler(() -> {
-			if (holder[0] != null && System.currentTimeMillis() > holder[0].deadline) {
-				throw new LuaError("script ran longer than " + BUDGET_MS + " ms");
+			if (holder[0] != null && System.nanoTime() - holder[0].deadline > 0) {
+				throw new Timeout();
 			}
 			return InterruptAction.CONTINUE;
 		}).build();
@@ -144,13 +158,29 @@ public final class SoulsScripts {
 	}
 
 	private static Varargs run(Script script, LuaFunction fn, Varargs args) throws LuaError {
-		script.deadline = System.currentTimeMillis() + BUDGET_MS;
-		// Raised again every 5 ms past the budget: the handler only stops the script once the deadline has passed.
-		ScheduledFuture<?> alarm = WATCHDOG.scheduleAtFixedRate(script.state::interrupt, BUDGET_MS, 5, TimeUnit.MILLISECONDS);
+		// A call made from inside another call of the same script shares the outer call's budget and alarm.
+		boolean outer = script.depth++ == 0;
+		ScheduledFuture<?> alarm = null;
+		if (outer) {
+			script.deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(BUDGET_MS);
+			// Raised again every 5 ms past the budget: the handler only stops the script once the deadline has passed.
+			alarm = WATCHDOG.scheduleAtFixedRate(script.state::interrupt, BUDGET_MS, 5, TimeUnit.MILLISECONDS);
+		}
 		try {
-			return LuaThread.runMain(script.state, fn, args);
+			// A new Lua thread per call, never the state's main thread: Cobalt does not unwind the main thread's call
+			// stack after an error, so every failed call would leave its frames there until the script answered
+			// "stack overflow" to everything.
+			return LuaThread.run(new LuaThread(script.state, fn), args);
+		} catch (Timeout t) {
+			if (!outer) {
+				throw t; // Through the outer call's Lua too, where it still must not be caught.
+			}
+			throw new LuaError(t.getMessage());
 		} finally {
-			alarm.cancel(false);
+			script.depth--;
+			if (alarm != null) {
+				alarm.cancel(false);
+			}
 		}
 	}
 
@@ -259,6 +289,15 @@ public final class SoulsScripts {
 		return t;
 	}
 
+	/** A number argument that is not NaN or infinite (a position, a direction, a radius). */
+	private static double finite(LuaValue v, String what) throws LuaError {
+		double d = v.checkDouble();
+		if (Double.isNaN(d) || Double.isInfinite(d)) {
+			throw new LuaError(what + " must be a finite number");
+		}
+		return d;
+	}
+
 	private static Entity entity(int id) throws LuaError {
 		Entity e = call().level().getEntity(id);
 		if (e == null) {
@@ -291,7 +330,7 @@ public final class SoulsScripts {
 				RegisteredFunction.of("near", (s, radius) -> {
 					Call call = call();
 					Entity c = call.caster() != null ? call.caster() : call.enemy();
-					double r = Math.min(32, radius.checkDouble());
+					double r = Math.min(32, Math.max(0, finite(radius, "radius")));
 					List<Entity> list = call.level().getEntities(c, c.getBoundingBox().inflate(r),
 							e -> e instanceof LivingEntity l && l.isAlive() && e.distanceTo(c) <= r);
 					LuaValue[] ids = new LuaValue[list.size()];
@@ -313,10 +352,17 @@ public final class SoulsScripts {
 					}
 					ServerPlayer p = c.caster();
 					double yaw = Math.toRadians(p.getYRot());
-					Vec3 pos = args.count() >= 4 ? new Vec3(args.arg(2).checkDouble(), args.arg(3).checkDouble(),
-							args.arg(4).checkDouble()) : p.position().add(0, p.getBbHeight() * 0.6, 0);
-					Vec3 dir = args.count() >= 7 ? new Vec3(args.arg(5).checkDouble(), args.arg(6).checkDouble(),
-							args.arg(7).checkDouble()) : new Vec3(-Math.sin(yaw), 0, Math.cos(yaw));
+					Vec3 pos = args.count() >= 4 ? new Vec3(finite(args.arg(2), "x"), finite(args.arg(3), "y"),
+							finite(args.arg(4), "z")) : p.position().add(0, p.getBbHeight() * 0.6, 0);
+					Vec3 dir = args.count() >= 7 ? new Vec3(finite(args.arg(5), "dx"), finite(args.arg(6), "dy"),
+							finite(args.arg(7), "dz")) : new Vec3(-Math.sin(yaw), 0, Math.cos(yaw));
+					// A bullet in a chunk that is not loaded never ticks: it would stay there, saved with the chunk.
+					if (!p.serverLevel().isLoaded(net.minecraft.core.BlockPos.containing(pos))) {
+						throw new LuaError("the position is not in a loaded chunk");
+					}
+					if (dir.lengthSqr() < 1e-9) {
+						throw new LuaError("the direction is zero");
+					}
 					Entity target = SoulsMagic.lockTarget(p);
 					SoulsBullet.emit(p.serverLevel(), p, def, spell.bullets(), () -> new SoulsBullet.Frame(pos, dir),
 							c.attack().clone(), c.catalystKey(), target, c.homingRange(), c.spell());
@@ -334,6 +380,34 @@ public final class SoulsScripts {
 					}
 					SoulsSpEffects.apply(c.caster(), victim, c.spell(), effect.checkInteger(), spell.bullets(),
 							c.attack(), c.catalystKey(), 0, 0);
+					return Constants.NIL;
+				}),
+				// bse.animate(id, animation [, seconds]) -> a player plays a c0001 clip held in place (SoulsAttack.animate):
+				// animation is a TAE id (number) or a resource pack animation id; returns the seconds it holds.
+				RegisteredFunction.ofV("animate", (s, args) -> {
+					if (!(entity(args.arg(1).checkInteger()) instanceof ServerPlayer p)) {
+						throw new LuaError("entity " + args.arg(1) + " is not a player");
+					}
+					LuaValue a = args.arg(2);
+					String key = a.isNumber() ? String.valueOf(a.checkInteger()) : a.checkLuaString().toString();
+					float seconds = args.count() >= 3 ? (float) finite(args.arg(3), "seconds") : Float.NaN;
+					int ticks = SoulsAttack.animate(p, key, seconds);
+					if (ticks < 0) {
+						throw new LuaError("no duration for animation " + key);
+					}
+					return valueOf(ticks / 20.0);
+				}),
+				// bse.status(id, kind, amount) -> a hit's petrification ("petrify") or curse ("curse") build-up on a
+				// player (SoulsStatus, through its resistance).
+				RegisteredFunction.ofV("status", (s, args) -> {
+					if (!(entity(args.arg(1).checkInteger()) instanceof ServerPlayer p)) {
+						throw new LuaError("entity " + args.arg(1) + " is not a player");
+					}
+					SoulsStatus.Kind kind = SoulsStatus.Kind.byId(args.arg(2).checkLuaString().toString());
+					if (kind == null) {
+						throw new LuaError("unknown status " + args.arg(2) + " (petrify, curse)");
+					}
+					SoulsStatus.buildUp(p, kind, (float) finite(args.arg(3), "amount"));
 					return Constants.NIL;
 				}),
 				// Enemy hooks (enemy_ai.md s.5, s.10).

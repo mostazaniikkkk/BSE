@@ -51,6 +51,31 @@ public final class SoulsCommands {
 						.then(Commands.argument("attribute", StringArgumentType.word())
 								.suggests((ctx, builder) -> SharedSuggestionProvider.suggest(Attributes.NAMES, builder))
 								.executes(ctx -> levelUp(ctx.getSource(), StringArgumentType.getString(ctx, "attribute")))))
+				.then(Commands.literal("defend")
+						.then(Commands.argument("host", net.minecraft.commands.arguments.EntityArgument.player())
+								.executes(ctx -> SoulsPvp.defend(ctx.getSource().getPlayerOrException(),
+										net.minecraft.commands.arguments.EntityArgument.getPlayer(ctx, "host")) ? 1 : 0)))
+				// /souls animate <players> <animation> [seconds] (docs/datapacks.md "Animación forzada"): returns the ticks.
+				.then(Commands.literal("animate").requires(source -> source.hasPermission(2))
+						.then(Commands.argument("targets", net.minecraft.commands.arguments.EntityArgument.players())
+								.then(Commands.argument("animation", net.minecraft.commands.arguments.ResourceLocationArgument.id())
+										.executes(ctx -> animate(ctx, Float.NaN))
+										.then(Commands.argument("seconds",
+												com.mojang.brigadier.arguments.FloatArgumentType.floatArg(0.05f, 600))
+												.executes(ctx -> animate(ctx, com.mojang.brigadier.arguments.FloatArgumentType
+														.getFloat(ctx, "seconds")))))))
+				// /souls status <players> <petrify|curse> <amount> (docs/datapacks.md "Petrificación y maldición"): a hit's
+				// build-up through the players' resistance; returns how many were affected.
+				.then(Commands.literal("status").requires(source -> source.hasPermission(2))
+						.then(Commands.argument("targets", net.minecraft.commands.arguments.EntityArgument.players())
+								.then(Commands.argument("kind", StringArgumentType.word())
+										.suggests((ctx, builder) -> SharedSuggestionProvider.suggest(
+												java.util.List.of("petrify", "curse"), builder))
+										.then(Commands.argument("amount",
+												com.mojang.brigadier.arguments.FloatArgumentType.floatArg(0, 10000))
+												.executes(ctx -> status(ctx))))))
+				.then(Commands.literal("pvp").requires(source -> source.hasPermission(2))
+						.executes(ctx -> SoulsPvp.invade(ctx.getSource().getPlayerOrException()) ? 1 : 0))
 				.then(Commands.literal("invade").requires(source -> source.hasPermission(2))
 						.executes(ctx -> SoulsInvasions.invade(ctx.getSource().getPlayerOrException()) ? 1 : 0))
 				.then(Commands.literal("enemy").requires(source -> source.hasPermission(2))
@@ -58,6 +83,45 @@ public final class SoulsCommands {
 								.suggests((ctx, builder) -> SharedSuggestionProvider.suggestResource(SoulsContent.enemyIds(), builder))
 								.executes(ctx -> spawnEnemy(ctx.getSource(),
 										net.minecraft.commands.arguments.ResourceLocationArgument.getId(ctx, "id"))))));
+	}
+
+	/**
+	 * /souls animate: a TAE id is written {@code soulsmode:<tae>} or just {@code <tae>} (minecraft:<tae> as parsed);
+	 * anything else is a resource pack animation id.
+	 */
+	private static int animate(com.mojang.brigadier.context.CommandContext<CommandSourceStack> ctx, float seconds)
+			throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+		var id = net.minecraft.commands.arguments.ResourceLocationArgument.getId(ctx, "animation");
+		boolean tae = !id.getPath().isEmpty() && id.getPath().chars().allMatch(Character::isDigit)
+				&& (id.getNamespace().equals("minecraft") || id.getNamespace().equals(SoulsMode.MOD_ID));
+		String key = tae ? id.getPath() : id.toString();
+		int ticks = -1;
+		for (var player : net.minecraft.commands.arguments.EntityArgument.getPlayers(ctx, "targets")) {
+			ticks = Math.max(ticks, SoulsAttack.animate(player, key, seconds));
+		}
+		if (ticks < 0) {
+			ctx.getSource().sendFailure(net.minecraft.network.chat.Component.translatable(
+					"commands.soulsmode.animate.no_duration", key));
+			return 0;
+		}
+		return ticks;
+	}
+
+	private static int status(com.mojang.brigadier.context.CommandContext<CommandSourceStack> ctx)
+			throws com.mojang.brigadier.exceptions.CommandSyntaxException {
+		SoulsStatus.Kind kind = SoulsStatus.Kind.byId(StringArgumentType.getString(ctx, "kind"));
+		if (kind == null) {
+			ctx.getSource().sendFailure(Component.translatable("commands.soulsmode.status.unknown",
+					StringArgumentType.getString(ctx, "kind")));
+			return 0;
+		}
+		float amount = com.mojang.brigadier.arguments.FloatArgumentType.getFloat(ctx, "amount");
+		int n = 0;
+		for (var player : net.minecraft.commands.arguments.EntityArgument.getPlayers(ctx, "targets")) {
+			SoulsStatus.buildUp(player, kind, amount);
+			n++;
+		}
+		return n;
 	}
 
 	/** Spawns a datapack enemy (docs/datapacks.md, "Enemigos") where the command runs. */

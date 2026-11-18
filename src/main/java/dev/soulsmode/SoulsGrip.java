@@ -125,7 +125,7 @@ public final class SoulsGrip {
 			return null;
 		}
 		String right = SoulsAttack.damageKey(SoulsWeapons.movesetFor(player.getMainHandItem()));
-		String left = SoulsAttack.damageKey(SoulsWeapons.movesetFor(player.getOffhandItem()));
+		String left = SoulsAttack.damageKey(SoulsWeapons.movesetFor(player.getOffhandItem(), true));
 		var stats = SoulsPlayer.data(player).map(SoulsData::toAttributes).orElse(null);
 		if (stats == null || !dev.soulsmode.ds2.PowerStance.pairAllowed(right, left)) {
 			return null;

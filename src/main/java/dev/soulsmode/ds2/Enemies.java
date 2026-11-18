@@ -21,7 +21,14 @@ public final class Enemies {
 	 * One EnemyDamageParam row (enemies.md s.4.1): attack value per type (0 physical, 1 magic, 2 lightning, 3 fire,
 	 * 4 dark; +0x0c/+0x10/+0x14 into +0x19/+0x1a/+0x1b), floor +0x18, rate +0x1c, guard stamina damage u16 +0x24.
 	 */
-	public record Damage(float[] values, int floor, float rate, int staminaDamage) {
+	/**
+	 * An EnemyDamageParam row: damages, floor, rate, guard stamina damage and the status pairs the mod reads, type 12
+	 * petrification and type 9 curse (FUN_140170710, docs/research/petrification.md section 1.1).
+	 */
+	public record Damage(float[] values, int floor, float rate, int staminaDamage, float petrify, float curse) {
+		public Damage(float[] values, int floor, float rate, int staminaDamage) {
+			this(values, floor, rate, staminaDamage, 0, 0);
+		}
 	}
 
 	/**
@@ -45,7 +52,8 @@ public final class Enemies {
 			values[i] = d.has(types[i]) ? d.get(types[i]).getAsFloat() : 0;
 		}
 		return new Damage(values, d.has("floor") ? d.get("floor").getAsInt() : 0, d.has("rate") ? d.get("rate").getAsFloat() : 1,
-				d.has("staminaDamage") ? d.get("staminaDamage").getAsInt() : 0);
+				d.has("staminaDamage") ? d.get("staminaDamage").getAsInt() : 0,
+				d.has("petrify") ? d.get("petrify").getAsFloat() : 0, d.has("curse") ? d.get("curse").getAsFloat() : 0);
 	}
 
 	/** One ItemLotParam2_Chr slot (s.6): item, count, chance in % per roll. */
@@ -63,7 +71,7 @@ public final class Enemies {
 			List<Attack> attacks, float walkSpeed, float runSpeed, float width, float height, float followRange,
 			Map<String, String> animations, Map<String, Float> durations, String model, String texture,
 			String animationFile, net.minecraft.resources.ResourceLocation script, boolean boss, float[] turn,
-			float bleedResistance) {
+			float bleedResistance, Targets targets) {
 		/**
 		 * The turn rate in degrees per tick outside attacks (FUN_1403a28b0): lerp(EnemyMoveParam +0x2c, +0x30) by
 		 * speed / +0x20, rad/s; {@code turn} = {+0x2c, +0x30, +0x20}. Null: Minecraft's mob turn.
@@ -83,6 +91,39 @@ public final class Enemies {
 				}
 			}
 			return null;
+		}
+	}
+
+	/**
+	 * Who the enemy goes after (the mod's own field: DS2 decides it by faction in the ESD, which a pack writes as this
+	 * filter). {@code players}: false = no player; {@code playerPredicate}: a datapack predicate the player must pass
+	 * (null = all). {@code entities}: entity type ids or {@code #tags} that are targets too (empty = none).
+	 */
+	public record Targets(boolean players, net.minecraft.resources.ResourceLocation playerPredicate,
+			List<String> entities) {
+		public static final Targets DEFAULT = new Targets(true, null, List.of());
+
+		static Targets parse(JsonObject t) {
+			boolean players = true;
+			net.minecraft.resources.ResourceLocation predicate = null;
+			if (t.has("players")) {
+				JsonElement p = t.get("players");
+				if (p.isJsonPrimitive() && p.getAsJsonPrimitive().isBoolean()) {
+					players = p.getAsBoolean();
+				} else {
+					predicate = net.minecraft.resources.ResourceLocation.parse(p.getAsString());
+				}
+			}
+			List<String> entities = new ArrayList<>();
+			if (t.has("entities")) {
+				for (JsonElement e : t.getAsJsonArray("entities")) {
+					String s = e.getAsString();
+					// Validated here so a typo fails the load, not every tick.
+					net.minecraft.resources.ResourceLocation.parse(s.startsWith("#") ? s.substring(1) : s);
+					entities.add(s);
+				}
+			}
+			return new Targets(players, predicate, List.copyOf(entities));
 		}
 	}
 
@@ -162,7 +203,8 @@ public final class Enemies {
 						j.getAsJsonArray("turn").get(2).getAsFloat()} : null,
 				// Bleed resistance (EnemyParam +0xb4 x 0.01, bleed.md section 2); 0.30, the most common in DS2, by
 				// default (the user's choice for creatures without DS2 data).
-				j.has("bleedResistance") ? j.get("bleedResistance").getAsFloat() : 0.30f);
+				j.has("bleedResistance") ? j.get("bleedResistance").getAsFloat() : 0.30f,
+				j.has("targets") ? Targets.parse(j.getAsJsonObject("targets")) : Targets.DEFAULT);
 	}
 
 	/**

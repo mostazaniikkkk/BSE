@@ -88,7 +88,32 @@ public final class HitBack {
 	/** The R_Weapon sample nearest to {@code t} of an attack animation, or null without data. */
 	public static synchronized Bone bone(int taeId, float t) {
 		load();
-		List<Bone> list = bones.get(taeId);
+		return nearest(bones.get(taeId), t);
+	}
+
+	/** The R_Weapon sample nearest to {@code t} of an attack: a datapack animation's own samples, else by TAE id. */
+	public static Bone bone(Attack attack, float t) {
+		List<Bone> own = AttackData.of(attack).bones();
+		return own.isEmpty() ? bone(attack.taeId(), t) : nearest(own, t);
+	}
+
+	/** {@link #bones(int, float, float)} of an attack, with a datapack animation's own samples. */
+	public static List<Bone> bones(Attack attack, float from, float to) {
+		List<Bone> own = AttackData.of(attack).bones();
+		if (own.isEmpty()) {
+			return bones(attack.taeId(), from, to);
+		}
+		List<Bone> out = new ArrayList<>();
+		for (Bone b : own) {
+			if (b.time() > from && b.time() <= to) {
+				out.add(b);
+			}
+		}
+		Bone n = nearest(own, to);
+		return !out.isEmpty() ? out : n == null ? List.of() : List.of(n);
+	}
+
+	private static Bone nearest(List<Bone> list, float t) {
 		if (list == null || list.isEmpty()) {
 			return null;
 		}
@@ -133,6 +158,14 @@ public final class HitBack {
 	public static synchronized Dummy dummy(String weapon, int id) {
 		load();
 		Map<Integer, Dummy> m = dummies.get(weapon);
+		if (m == null) {
+			// A datapack weapon: its own hitDummies (same format).
+			JsonObject w = Weapons.packEntry(weapon);
+			if (w != null && w.has("hitDummies")) {
+				JsonObject o = w.getAsJsonObject("hitDummies").getAsJsonObject(String.valueOf(id));
+				return o == null ? null : new Dummy(floats(o.getAsJsonArray("pos")), floats(o.getAsJsonArray("fwd")));
+			}
+		}
 		return m == null ? null : m.get(id);
 	}
 
@@ -181,6 +214,20 @@ public final class HitBack {
 		return null;
 	}
 
+	/** An animation's {@code weaponBones}: R_Weapon samples {time, pos, rot}. */
+	static List<Bone> parseBones(com.google.gson.JsonArray samples) {
+		List<Bone> list = new ArrayList<>();
+		for (JsonElement s : samples) {
+			JsonObject o = s.getAsJsonObject();
+			float[][] rot = new float[3][];
+			for (int i = 0; i < 3; i++) {
+				rot[i] = floats(o.getAsJsonArray("rot").get(i).getAsJsonArray());
+			}
+			list.add(new Bone(o.get("time").getAsFloat(), floats(o.getAsJsonArray("pos")), rot));
+		}
+		return List.copyOf(list);
+	}
+
 	private static void load() {
 		if (bones != null) {
 			return;
@@ -198,16 +245,7 @@ public final class HitBack {
 				events.put(tae, a.get("hitBackEvent").getAsInt());
 			}
 			if (a.has("weaponBones") && a.get("weaponBones").isJsonArray()) {
-				List<Bone> list = new ArrayList<>();
-				for (JsonElement s : a.getAsJsonArray("weaponBones")) {
-					JsonObject o = s.getAsJsonObject();
-					float[][] rot = new float[3][];
-					for (int i = 0; i < 3; i++) {
-						rot[i] = floats(o.getAsJsonArray("rot").get(i).getAsJsonArray());
-					}
-					list.add(new Bone(o.get("time").getAsFloat(), floats(o.getAsJsonArray("pos")), rot));
-				}
-				bones.put(tae, List.copyOf(list));
+				bones.put(tae, parseBones(a.getAsJsonArray("weaponBones")));
 			}
 		}
 		dummies = new HashMap<>();

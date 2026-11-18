@@ -87,6 +87,83 @@ evento indicado en `SpEffectMustSub.emevd`.
 - **Sin trazar**: qué valor de `BonfireCategory` elige cada clip, y quién traduce `chr+0xc8+0xfc` `0x1000` / `0x2000` a
   esos requests. `ChrEventKindleBonfireActionCtrl` (vtable `0x1410bf628`) existe, pero no se analizó.
 
+## Hueso de regreso (Homeward Bone, ItemParam 60350000)
+
+Pedido del usuario (2026-11-10). Investigación de un agente de solo lectura (2026-11-10); archivos en
+`D:\Reversing\DS2\out\homeward\` (`h1.c`..`h6.c`, `x1.txt`, `x2.txt`, `texts.json`, icono).
+
+### ItemParam 60350000 (comparado con la Pluma envejecida 60355000 y el Signo oscuro 60360000)
+| Campo | Hueso | Pluma | Signo oscuro |
+|---|---|---|---|
+| `+0x08/+0x0c/+0x10` modelos | 0 / 863 / 0 | -1 / 897 / -1 | 0 / 864 / 0 |
+| `+0x38` velocidad de uso | 0.7 | 0.7 | 0.7 |
+| `+0x40` ItemTypeParam | **250** | 250 | 260 |
+| `+0x44` ItemUsageParam | **1800** (`+5` bit 0 = 0: **no en escalera**) | 2210 | 2200 |
+| `+0x4a` máximo | **99** | 1 | 1 |
+| `+0x52` | 0x0c (bit 0 apagado: **se gasta**, por datos) | 0x0d (reutilizable) | 0x0d |
+
+### Animación: `a00_18_0080 ItemUsePray` (TAE 180080)
+- ItemTypeParam 250 / 260 → `+0x10` = **210**. No existe `a00_18_0210`: el selector del nmb (nodo 0x177b, CP 165
+  `ItemUseCategory`, pesos {200, 210, 220, 230, 240, 250} en `0x4ea478`) manda 210 al nodo 0x1775 =
+  `a00_18_0080_ItemUsePray_untit_6ab531d9.nsa`, **8.0 s** (`out\plunge\grip_nodes.py`).
+- TAE: 220200 modelo 0.167–2.167 (dummy 26) y 2.167–2.333 (dummies 9 / 249, modelo 863); **220000 a 2.333 s**: aplica
+  el SpEffect 60350000.
+- nmb: `CancelControl_Avoid` / `_AttackAll` / `_Guard` 0–**7.2 s**; **sin `CancelControl_Move`** (se puede caminar).
+  Exportado como `weapons.json → homeward_bone` (`item_use(180080)`), clip `ds2_180080`.
+
+### Efecto (`SpEffectActiveItem.emevd`)
+| SpEffect | Instrucciones |
+|---|---|
+| 60350000 (hueso) | `100130[00] (0, -1, -1)` + `1000[03] (24, 5.0)` |
+| 60355000 (pluma) | igual |
+| 60360000 (signo oscuro) | igual + `100130[01] (1, 931, 1, 100)` (pierde las almas) |
+
+- El hueso **conserva las almas**.
+- `100130[00]` → `0x14022c8c0` (filtro `FUN_14022d7e0`: byte de contexto `+0x50` ∈ {2, 5, 6}, sin identificar): quita
+  el SpEffect 754 y crea una entrada `SpEffectEach_Special` (grupo `SpEffectGroup_Special`).
+- El viaje: `FUN_14044fde0` (destino del registro de arriba, "Punto de reaparición") lo llaman solo `FUN_140190920` /
+  `FUN_140190950` desde el stub `0x14018ffcf`, que no tiene referencias (código ofuscado). **El enlace entrada
+  Special → viaje no está trazado**; que el hueso vaya al registro lo dicen el texto y ese destino.
+- Sin hoguera de descanso: el registro por defecto es `m10_02_00_00` tipo 2 (mapa inicial, sin hoguera).
+
+### Textos
+- es (NeutralSpanish = Spanish): "Hueso de regreso" / "Regresa a la última hoguera en la que descansaste." Diálogo
+  `common` 30000001: "¿Volver a la última hoguera?".
+- en: "Homeward Bone" / "Return to last bonfire rested at".
+
+### Port al mod (`SoulsHomeward`, 0.5.0)
+- Animación y tiempos de DS2; a los 2.333 s gasta un hueso y lleva al jugador a la última hoguera donde descansó o a la
+  que viajó (`soulsmode:last_bonfire`, escrito donde DS2 escribe el registro), de pie y mirando al fuego, como el viaje.
+  No funciona en una escalera. Conserva las almas (la experiencia).
+- Sin hoguera de descanso, o si la hoguera ya no está o está apagada: **spawn del mundo** (decisión del usuario,
+  2026-11-10).
+- Receta (usuario): un hueso y cualquier alma (`#soulsmode:souls`).
+
+### Diálogo, invulnerabilidad y restricciones (segunda investigación, 2026-11-10; `out\homeward2\`)
+- **Diálogo** (`ItemUseCheckDialogParam`, cargado por `FUN_14048c770`; filas de 0x14 bytes: `u8 cond[4]`, `u32 msg[4]`):
+  `FUN_140500c40` (desde `ChrItemCtrl` al apretar usar) toma la primera condición que se cumple (0 nunca, **1 siempre**,
+  2..4 estados de red) y pregunta `msg[i]` (`common.fmg`) con **SÍ / NO** (`common` 200 / 201) **antes** de la
+  animación; **el cursor empieza en NO** (7.º argumento 0 → la respuesta que no usa el objeto). Solo SÍ pone el flag
+  0x800 que arranca el uso; NO o cancelar no gastan nada. El hueso (y la Pluma) preguntan 30000001 "¿Volver a la
+  última hoguera?"; las almas de gigante y de jefe (50920000, 64xxxxxx) 30000010 "¿Usar %s?". 57 filas en total.
+- **`1000[03] (24, 5.0)` = 5 s sin recibir daño**: el único lector del bit 24 de `b8+0x4b8` es `FUN_14016d830`, usado por
+  `FUN_14013a620` (`vt+0x48` de los `DamageActionCtrl`): con el bit no se aplican PS, estamina, estabilidad ni estados
+  (salvo PDP `+0x65` bit 1 o golpe `+0x83`). 5.0 es la duración en segundos (`FUN_14021ded0` / `FUN_14021e060` le
+  restan dt). Lo mismo usa el milagro Repeler (34080000, 1.75 s).
+- **Restricciones**: solo la escalera (ItemUsageParam `+5` bit 0). No hay chequeo de jefe ni de mapa en lo trazado; con
+  sesión en línea y `DAT_1410c0050[idx].byte1 ≠ 0` no viaja localmente (`FUN_1402c9220`), sin identificar qué rol es.
+  Ningún mensaje de "no se puede usar" en este camino.
+- **En el mod**: diálogo SÍ / NO con el cursor en NO (`SoulsUseCheck`, `UseCheckClient`) para el hueso y las almas de
+  gigante; 5 s sin daño desde el uso (`SoulsHomeward.isInvulnerable`, en `ALLOW_DAMAGE`).
+
+### Sin confirmar (Hueso de regreso)
+- El camino entrada Special → `0x14018ffcf` → `FUN_14044fde0`; qué permite el contexto `+0x50`; si funciona en una pelea
+  de jefe, invadido o en línea (rama `DAT_1416148f0+0x22f0`).
+- `1000[03] (24, 5.0)`: qué hace el bit 24 de `b8+0x4b8` y si 5.0 es una duración.
+- Fundido, tiempo de carga y si llega sentado o de pie.
+- Bits de ItemUsageParam 1800 salvo `+5` bit 0; byte 0 de `ItemUseCheckDialogParam`; quién aplica el SpEffect 754.
+- Que se gaste (por datos) y cuándo; qué hace `ItemUse_Speed` 0.7 con el clip de 8 s.
+
 ## No encontrado
 - **Recarga del Estus**: no está en el SpEffect 110000010 ni en la cadena de la hoguera analizada.
   - El texto 60155000 dice "Fill it with Estus at a bonfire" / "replenish at bonfires".

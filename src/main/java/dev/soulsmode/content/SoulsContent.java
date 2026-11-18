@@ -135,6 +135,11 @@ public final class SoulsContent {
 		state = empty();
 		enemies = Map.of();
 		Ds2Damage.setPack(Map.of());
+		Ds2Damage.setPackUpgrades(Map.of());
+		Weapons.setPack(Map.of(), null, null);
+		dev.soulsmode.ds2.PowerStance.setPack(Map.of());
+		dev.soulsmode.ds2.GuardAttacks.setPack(Map.of());
+		dev.soulsmode.ds2.WeaponEffect.setPack(Map.of());
 	}
 
 	/** Builds every definition from the files; the previous content is replaced as a whole. */
@@ -148,20 +153,60 @@ public final class SoulsContent {
 				e.getValue().getAsJsonObject("animations").entrySet().forEach(a -> animations.add(a.getKey(), a.getValue()));
 			}
 		}
+		// Power stance locomotion clips: the mod's plus every pack's "powerStanceClips" (keys: stance ids).
+		JsonObject stanceClips = new JsonObject();
+		Weapons.raw().getAsJsonObject("powerStanceClips").entrySet().forEach(e -> stanceClips.add(e.getKey(), e.getValue()));
+		for (Map.Entry<ResourceLocation, JsonObject> e : weaponFiles.entrySet()) {
+			if (e.getValue().has("powerStanceClips")) {
+				e.getValue().getAsJsonObject("powerStanceClips").entrySet()
+						.forEach(a -> stanceClips.add(a.getKey(), a.getValue()));
+			}
+		}
 		Map<ResourceLocation, Weapons.Def> weapons = new LinkedHashMap<>();
 		Map<String, Ds2Damage.WeaponData> damage = new HashMap<>();
+		Map<String, JsonObject> entries = new HashMap<>();
+		Map<String, Ds2Damage.WeaponUpgrade> upgrades = new HashMap<>();
+		Map<String, dev.soulsmode.ds2.PowerStance.Data> powerStances = new HashMap<>();
+		Map<String, dev.soulsmode.ds2.GuardAttacks.Data> guardAttacks = new HashMap<>();
+		Map<String, dev.soulsmode.ds2.WeaponEffect> effects = new HashMap<>();
 		Bindings weaponBindings = new Bindings();
 		for (Map.Entry<ResourceLocation, JsonObject> e : weaponFiles.entrySet()) {
 			ResourceLocation id = e.getKey();
 			try {
-				Weapons.Def def = Weapons.parse(resolveWeapon(id, weaponFiles, new HashSet<>()), animations);
+				// Every per-weapon field BSE reads for its own weapons is read from the datapack weapon too
+				// (docs/datapacks.md "Armas"): reinforcement and infusions, power stance, guard attacks, own SpEffect.
+				JsonObject resolved = resolveWeapon(id, weaponFiles, new HashSet<>());
+				Weapons.Def def = Weapons.parse(resolved, animations);
+				Ds2Damage.WeaponUpgrade upgrade = Ds2Damage.parseUpgrade(resolved.getAsJsonObject("attack"));
+				var power = dev.soulsmode.ds2.PowerStance.parse(resolved, animations);
+				var guard = dev.soulsmode.ds2.GuardAttacks.parse(resolved, animations);
+				var effect = dev.soulsmode.ds2.WeaponEffect.parse(resolved);
+				dev.soulsmode.ds2.Bullets.parse(resolved.has("bullets") ? resolved.getAsJsonObject("bullets") : new JsonObject());
 				weaponBindings.add(e.getValue(), id);
 				weapons.put(id, def);
 				damage.put(id.toString(), def.attack());
+				entries.put(id.toString(), resolved);
+				if (upgrade != null) {
+					upgrades.put(id.toString(), upgrade);
+				}
+				if (power != null) {
+					powerStances.put(id.toString(), power);
+				}
+				if (guard != null) {
+					guardAttacks.put(id.toString(), guard);
+				}
+				if (effect != null) {
+					effects.put(id.toString(), effect);
+				}
 			} catch (RuntimeException ex) {
 				error(Kind.WEAPON, id, ex);
 			}
 		}
+		Weapons.setPack(entries, animations, stanceClips);
+		Ds2Damage.setPackUpgrades(upgrades);
+		dev.soulsmode.ds2.PowerStance.setPack(powerStances);
+		dev.soulsmode.ds2.GuardAttacks.setPack(guardAttacks);
+		dev.soulsmode.ds2.WeaponEffect.setPack(effects);
 		Map<ResourceLocation, ArmorDef> armor = new LinkedHashMap<>();
 		Bindings armorBindings = new Bindings();
 		sources.getOrDefault(Kind.ARMOR, Map.of()).forEach((id, json) -> {
@@ -265,7 +310,7 @@ public final class SoulsContent {
 			out = new JsonObject();
 		}
 		for (Map.Entry<String, JsonElement> e : file.entrySet()) {
-			if (!Set.of("extends", "items", "animations").contains(e.getKey())) {
+			if (!Set.of("extends", "items", "animations", "powerStanceClips").contains(e.getKey())) {
 				merge(out, e.getKey(), e.getValue());
 			}
 		}

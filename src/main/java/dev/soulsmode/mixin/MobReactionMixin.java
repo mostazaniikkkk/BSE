@@ -24,6 +24,11 @@ public class MobReactionMixin {
 	@Inject(method = "serverAiStep", at = @At("HEAD"), cancellable = true)
 	private void soulsmode$hitReaction(CallbackInfo ci) {
 		Mob mob = (Mob) (Object) this;
+		if (dev.soulsmode.SoulsThrown.luredStep(mob)) {
+			// Lured by an Alluring Skull (SoulsThrown): only walks to it.
+			ci.cancel();
+			return;
+		}
 		SoulsPerception.tickMob(mob);
 		if (SoulsHitReaction.frozen(mob)) {
 			mob.getNavigation().stop();

@@ -119,7 +119,7 @@ public final class SoulsUpgrade {
 		}
 		String key = weaponKey(stack);
 		Ds2Damage.WeaponUpgrade up = key == null ? null : Ds2Damage.upgrade(key);
-		return up == null || up.cost().length == 0 || !hasMaterials(up.cost()) ? 0 : tierMax(stack);
+		return up == null || up.cost().length == 0 || !hasMaterials(up) ? 0 : tierMax(stack);
 	}
 
 	/** The next reinforcement of a stack, or null at the maximum or when it cannot be reinforced. */
@@ -131,15 +131,18 @@ public final class SoulsUpgrade {
 		}
 		int[][] cost;
 		int row;
+		Item material;
 		if (stack.getItem() instanceof ArmorItem armor) {
 			cost = armorUpgrade(armor).cost();
 			row = n - 1;
+			material = material(cost[row][1]);
 		} else {
-			cost = Ds2Damage.upgrade(weaponKey(stack)).cost();
+			Ds2Damage.WeaponUpgrade up = Ds2Damage.upgrade(weaponKey(stack));
+			cost = up.cost();
 			int ds2Max = cost.length;
 			row = Math.max(1, Math.min(ds2Max, (int) Math.ceil(n * ds2Max / (double) max))) - 1;
+			material = material(up, row);
 		}
-		Item material = material(cost[row][1]);
 		return material == null ? null : new Step(n, material, Math.max(1, cost[row][2]), n);
 	}
 
@@ -210,6 +213,29 @@ public final class SoulsUpgrade {
 			case LEGS -> 3;
 			default -> -1;
 		};
+	}
+
+	private static boolean hasMaterials(Ds2Damage.WeaponUpgrade up) {
+		for (int i = 0; i < up.cost().length; i++) {
+			if (material(up, i) == null) {
+				return false;
+			}
+		}
+		return up.cost().length > 0;
+	}
+
+	/**
+	 * The material of a weapon's cost row: a datapack's item id (any item, e.g. a datapack's Petrified Dragon Bone), or
+	 * the mod's item of the DS2 id; null when neither exists.
+	 */
+	public static Item material(Ds2Damage.WeaponUpgrade up, int row) {
+		String id = up.materialItem(row);
+		if (id != null) {
+			var item = net.minecraft.core.registries.BuiltInRegistries.ITEM
+					.getOptional(net.minecraft.resources.ResourceLocation.parse(id));
+			return item.filter(i -> i != Items.AIR).orElse(null);
+		}
+		return material(up.cost()[row][1]);
 	}
 
 	private static boolean hasMaterials(int[][] cost) {

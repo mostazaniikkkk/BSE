@@ -14,6 +14,23 @@ class Ds2DamageTest {
 	}
 
 	@Test
+	void petrificationAndCurseResistance() {
+		// petrification.md 1.2 / 5: Adp 10 / Vgr 10 -> PSPL +0x50 row 10 = 16 %; Adp 10 / Att 10 -> +0x54 row 10 = 16 %.
+		short[] s = new short[Attributes.SLOT_COUNT];
+		java.util.Arrays.fill(s, (short) 10);
+		Attributes a = new Attributes(s);
+		assertEquals(0.16f, Ds2Damage.statusStatAbsorption(false, a), 1e-4f);
+		assertEquals(0.16f, Ds2Damage.statusStatAbsorption(true, a), 1e-4f);
+		// Adp 20 / Vgr 20 -> row 20 = 24 %; Adp 1 / Vgr 1 -> row 1 = 10 %.
+		java.util.Arrays.fill(s, (short) 20);
+		assertEquals(0.24f, Ds2Damage.statusStatAbsorption(false, new Attributes(s)), 1e-4f);
+		java.util.Arrays.fill(s, (short) 1);
+		assertEquals(0.10f, Ds2Damage.statusStatAbsorption(false, new Attributes(s)), 1e-4f);
+		// The gold set's +0 head (its ARP +0x28 in weapons.json): 1.7 % petrification.
+		assertEquals(0.017f, Ds2Damage.pieceStatus(false, "gold", 0, 0), 1e-4f);
+	}
+
+	@Test
 	void longswordWorkedExample() {
 		// docs/research/damage.md §6: Longsword +0, Str 16 / Dex 11 -> 112 + 70 x 0.45 + 59 x 0.25 = 158.25.
 		float[] ar = Ds2Damage.attackRating("longsword", 0, stats(16, 11), false, false, -1);

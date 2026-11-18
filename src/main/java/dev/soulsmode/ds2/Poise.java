@@ -54,6 +54,8 @@ public final class Poise {
 	private static Map<Integer, List<float[]>> noReaction;
 	private static Map<Integer, List<float[]>> poiseFactorWindows;
 	private static Map<Integer, List<Hit>> weaponHits;
+	/** Per weapons.json key, per TAE id: that weapon's own rows (the same clip can carry another weapon's DCP). */
+	private static Map<String, Map<Integer, List<Hit>>> weaponHitsByWeapon;
 	private static Map<String, Float> attackPoiseFactor;
 	private static Map<Integer, StaggerClip> staggerClips;
 
@@ -95,10 +97,12 @@ public final class Poise {
 			noReaction = windows(tae.getAsJsonArray("110600"));
 			poiseFactorWindows = windows(tae.getAsJsonArray("111900"));
 			Map<Integer, List<Hit>> byTae = new HashMap<>();
+			Map<String, Map<Integer, List<Hit>>> byWeapon = new HashMap<>();
 			Map<String, Float> factors = new HashMap<>();
 			for (Map.Entry<String, JsonElement> w : root.getAsJsonObject("playerWeapons").entrySet()) {
 				JsonObject weapon = w.getValue().getAsJsonObject();
 				factors.put(w.getKey(), weapon.get("attackPoiseFactor").getAsFloat());
+				Map<Integer, List<Hit>> own = byWeapon.computeIfAbsent(w.getKey(), k -> new HashMap<>());
 				for (Map.Entry<String, JsonElement> a : weapon.getAsJsonObject("attacks").entrySet()) {
 					JsonObject attack = a.getValue().getAsJsonObject();
 					List<Hit> hits = new ArrayList<>();
@@ -106,8 +110,10 @@ public final class Poise {
 						hits.add(h.isJsonNull() ? null : hit(h.getAsJsonObject()));
 					}
 					byTae.putIfAbsent(attack.get("taeId").getAsInt(), hits);
+					own.putIfAbsent(attack.get("taeId").getAsInt(), hits);
 				}
 			}
+			weaponHitsByWeapon = byWeapon;
 			Map<Integer, StaggerClip> clips = new HashMap<>();
 			for (Map.Entry<String, JsonElement> c : root.getAsJsonObject("staggerClips").entrySet()) {
 				JsonObject o = c.getValue().getAsJsonObject();
@@ -134,7 +140,7 @@ public final class Poise {
 		return o.has(key) && !o.get(key).isJsonNull() ? o.get(key).getAsFloat() : Float.NaN;
 	}
 
-	private static Hit hit(JsonObject o) {
+	static Hit hit(JsonObject o) {
 		return new Hit(o.get("poiseDamage").getAsFloat(), o.get("poiseRule").getAsInt(), o.get("reaction").getAsInt(),
 				o.get("level").getAsInt(), o.has("remapped") ? o.get("remapped").getAsInt() : -1,
 				get(o, "speed"), get(o, "distance"),
@@ -242,6 +248,27 @@ public final class Poise {
 		return hits == null || slot < 0 || slot >= hits.size() ? null : hits.get(slot);
 	}
 
+	/**
+	 * The damage row of PDP slot {@code slot} of an attack swung with {@code weapon} (weapons.json key or datapack id):
+	 * the slot's own {@code poise} rows (datapack weapons), the weapon's rows for that clip, then any weapon's.
+	 */
+	public static Hit weaponHit(String weapon, Attack attack, int slot) {
+		if (attack == null || slot < 0) {
+			return null;
+		}
+		Hit[] own = AttackData.of(attack).poise();
+		if (own != null) {
+			return slot < own.length ? own[slot] : null;
+		}
+		load();
+		Map<Integer, List<Hit>> byWeapon = weapon == null ? null : weaponHitsByWeapon.get(weapon);
+		List<Hit> hits = byWeapon == null ? null : byWeapon.get(attack.taeId());
+		if (hits != null) {
+			return slot < hits.size() ? hits.get(slot) : null;
+		}
+		return weaponHit(attack.taeId(), slot);
+	}
+
 	/** ChrCommonParam 100 +0x30c..+0x318: D, A, B, C of the player's random Dmg_Rotation (HipsIK), degrees. */
 	public static float[] hipsRotation() {
 		load();
@@ -250,6 +277,10 @@ public final class Poise {
 
 	/** WeaponParam +0xb8 of a weapon (weapons.json key): b8+0x7d0 while one of its TAE 111900 windows runs. */
 	public static float attackPoiseFactor(String weapon) {
+		JsonObject pack = Weapons.packEntry(weapon);
+		if (pack != null && pack.has("attackPoiseFactor")) {
+			return pack.get("attackPoiseFactor").getAsFloat();
+		}
 		load();
 		return attackPoiseFactor.getOrDefault(weapon, 0f);
 	}

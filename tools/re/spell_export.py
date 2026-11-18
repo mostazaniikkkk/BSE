@@ -132,6 +132,11 @@ def speffect(sid, bullets, effects):
             # Movement speed rate (s.11.7): f32 seconds, f32 rate, u8 who (bit 0: player-type characters).
             t, r = struct.unpack_from('<ff', a, 0)
             out.append({'type': 'movementRate', 'duration': round(t, 4), 'rate': round(r, 4)})
+        elif (bank, iid) == (1000, 3):
+            # Status flag (SpEffectActionImpl_ChrStatus_Flag, bonfire.md "Hueso de regreso"): i32 bit of b8+0x4b8,
+            # f32 seconds (FUN_14021ded0; 0 = while the effect lasts).
+            bit, t = struct.unpack_from('<if', a, 0)
+            out.append({'type': 'statusFlag', 'bit': bit, 'duration': round(t, 4)})
         elif bank == 1000 and iid in (0, 1, 9):
             # Stat arrays (s.11.7): i32 index, f32 seconds, then i32 (add) or f32 (rate).
             idx, t = struct.unpack_from('<if', a, 0)

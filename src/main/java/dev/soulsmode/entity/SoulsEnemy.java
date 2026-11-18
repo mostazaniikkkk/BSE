@@ -202,16 +202,85 @@ public class SoulsEnemy extends PathfinderMob implements GeoEntity {
 		}
 	}
 
+	/**
+	 * Keeps the current target while it is valid and within the follow range; else the nearest valid one in sight
+	 * (players and, with {@code targets.entities}, those mobs).
+	 */
 	private LivingEntity target(Enemies.Def d) {
 		LivingEntity current = getTarget();
-		if (current instanceof Player p && p.isAlive() && !p.isCreative() && !p.isSpectator()
-				&& distanceTo(p) <= d.followRange()) {
+		double range = d.followRange();
+		if (current != null && current.level() == level() && validTarget(d, current) && distanceTo(current) <= range) {
 			return current;
 		}
-		return level().getNearestPlayer(getX(), getY(), getZ(), d.followRange(),
-				e -> e instanceof Player p && !p.isCreative() && !p.isSpectator() && hasLineOfSight(p)) instanceof Player p
-				? p : null;
+		LivingEntity best = null;
+		double bestSq = range * range;
+		for (Player p : level().players()) {
+			double sq = distanceToSqr(p);
+			if (sq <= bestSq && validTarget(d, p) && hasLineOfSight(p)) {
+				best = p;
+				bestSq = sq;
+			}
+		}
+		if (!d.targets().entities().isEmpty()) {
+			for (LivingEntity e : level().getEntitiesOfClass(LivingEntity.class, getBoundingBox().inflate(range),
+					e -> !(e instanceof Player))) {
+				double sq = distanceToSqr(e);
+				if (sq <= bestSq && validTarget(d, e) && hasLineOfSight(e)) {
+					best = e;
+					bestSq = sq;
+				}
+			}
+		}
+		return best;
 	}
+
+	/** Whether {@code e} passes the pack's target filter ({@code targets}, docs/datapacks.md). */
+	private boolean validTarget(Enemies.Def d, LivingEntity e) {
+		if (e == this || !e.isAlive() || e instanceof SoulsEnemy) {
+			return false;
+		}
+		if (e instanceof Player p) {
+			return !p.isCreative() && !p.isSpectator() && playerTarget(d.targets(), p);
+		}
+		for (String s : d.targets().entities()) {
+			if (s.startsWith("#") ? e.getType().is(net.minecraft.tags.TagKey.create(
+					net.minecraft.core.registries.Registries.ENTITY_TYPE, ResourceLocation.parse(s.substring(1))))
+					: BuiltInRegistries.ENTITY_TYPE.getKey(e.getType()).equals(ResourceLocation.parse(s))) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/** {@code targets.players}: off, all, or those passing the datapack predicate (as {@code execute if predicate}). */
+	private boolean playerTarget(Enemies.Targets t, Player p) {
+		if (!t.players()) {
+			return false;
+		}
+		if (t.playerPredicate() == null || !(level() instanceof ServerLevel level)) {
+			return true;
+		}
+		var condition = level.getServer().reloadableRegistries().get()
+				.registry(net.minecraft.core.registries.Registries.PREDICATE)
+				.flatMap(r -> r.getOptional(t.playerPredicate())).orElse(null);
+		if (condition == null) {
+			if (WARNED.add(t.playerPredicate())) {
+				SoulsMode.LOGGER.warn("[BSE] enemy {}: predicate {} not found; no player is a target", enemyId(),
+						t.playerPredicate());
+			}
+			return false;
+		}
+		var params = new net.minecraft.world.level.storage.loot.LootParams.Builder(level)
+				.withParameter(net.minecraft.world.level.storage.loot.parameters.LootContextParams.ORIGIN, p.position())
+				.withParameter(net.minecraft.world.level.storage.loot.parameters.LootContextParams.THIS_ENTITY, p)
+				.create(net.minecraft.world.level.storage.loot.parameters.LootContextParamSets.COMMAND);
+		var context = new net.minecraft.world.level.storage.loot.LootContext.Builder(params)
+				.create(java.util.Optional.empty());
+		context.pushVisitedElement(net.minecraft.world.level.storage.loot.LootContext.createVisitedEntry(condition));
+		return condition.test(context);
+	}
+
+	private static final Set<ResourceLocation> WARNED = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
 	/** f7001: distance to the target, 9999 without one. */
 	public double targetDistance() {
@@ -388,7 +457,9 @@ public class SoulsEnemy extends PathfinderMob implements GeoEntity {
 		AABB area = getBoundingBox().inflate(a.reach(), 1, a.reach());
 		for (Entity e : level.getEntities(this, area)) {
 			if (!(e instanceof LivingEntity victim) || !victim.isAlive() || hitThisWindow.contains(e.getId())
-					|| e instanceof SoulsEnemy || e instanceof Player p && (p.isCreative() || p.isSpectator())) {
+					|| e instanceof SoulsEnemy || e instanceof Player p && (p.isCreative() || p.isSpectator()
+					// A player outside the filter is not an enemy of it: its swings pass through them.
+					|| !playerTarget(d.targets(), p))) {
 				continue;
 			}
 			Vec3 to = new Vec3(e.getX() - getX(), 0, e.getZ() - getZ());
@@ -413,8 +484,13 @@ public class SoulsEnemy extends PathfinderMob implements GeoEntity {
 		}
 		float amount = Enemies.damageToPlayer(row, d.attackMultiplier(), defence)
 				/ (float) SoulsStats.DS2_HP_PER_HEALTH;
-		if (amount > 0) {
-			victim.hurt(source, amount);
+		boolean landed = amount > 0 && victim.hurt(source, amount);
+		if (victim instanceof ServerPlayer player && (landed || amount <= 0)) {
+			// The row's status pairs x EP +0xd8 (FUN_140391e60): petrification and curse (dev.soulsmode.SoulsStatus).
+			dev.soulsmode.SoulsStatus.buildUp(player, dev.soulsmode.SoulsStatus.Kind.PETRIFY,
+					row.petrify() * d.attackMultiplier());
+			dev.soulsmode.SoulsStatus.buildUp(player, dev.soulsmode.SoulsStatus.Kind.CURSE,
+					row.curse() * d.attackMultiplier());
 		}
 	}
 

@@ -47,7 +47,7 @@ public final class SoulsSounds {
 	record Layer(SoundEvent sound, float pitchSpread, float volumeMin, float volumeMax) {
 	}
 
-	record Event(float volume, float volumeRandomization, int pitchSteps, List<Layer> layers) {
+	record Event(float length, float volume, float volumeRandomization, int pitchSteps, List<Layer> layers) {
 	}
 
 	/**
@@ -63,6 +63,8 @@ public final class SoulsSounds {
 	/** ArmorParam +0x48 of each piece (head, chest, arms, legs) of the mod's DS2 armour sets; null = no row. */
 	private static final Map<String, Integer[]> ARMOR_SOUND = new HashMap<>();
 	private static int swingBase;
+	/** Sounds of bullet FFX (attack_sounds.json bulletSounds): key -> event. */
+	private static final Map<String, String> BULLETS = new HashMap<>();
 
 	private SoulsSounds() {
 	}
@@ -79,6 +81,7 @@ public final class SoulsSounds {
 			throw new IllegalStateException("cannot read " + RESOURCE, e);
 		}
 		swingBase = json.get("swingBase").getAsInt();
+		json.getAsJsonObject("bulletSounds").entrySet().forEach(e -> BULLETS.put(e.getKey(), e.getValue().getAsString()));
 		json.getAsJsonObject("swingType").entrySet().forEach(e -> SWING_TYPE.put(e.getKey(), e.getValue().getAsInt()));
 		for (Map.Entry<String, JsonElement> e : json.getAsJsonObject("armorSound").entrySet()) {
 			var a = e.getValue().getAsJsonArray();
@@ -101,7 +104,7 @@ public final class SoulsSounds {
 				layers.add(new Layer(sound, lo.get("pitchSpread").getAsFloat(), vol.get(0).getAsFloat(),
 						vol.get(1).getAsFloat()));
 			}
-			EVENTS.put(e.getKey(), new Event(ev.get("volume").getAsFloat(), ev.get("volumeRandomization").getAsFloat(),
+			EVENTS.put(e.getKey(), new Event(ev.get("length").getAsFloat(), ev.get("volume").getAsFloat(), ev.get("volumeRandomization").getAsFloat(),
 					ev.get("pitchSteps").getAsInt(), List.copyOf(layers)));
 		}
 		for (Map.Entry<String, JsonElement> e : json.getAsJsonObject("animations").entrySet()) {
@@ -114,6 +117,19 @@ public final class SoulsSounds {
 						: new Cue(t, null, co.get("swing").getAsInt(), co.get("hand").getAsInt(), 0, -1));
 			}
 			ANIMATIONS.put(Integer.parseInt(e.getKey()), List.copyOf(cues));
+		}
+		// The death banner's sting (tools/re/you_died.py, sounds.json "menu.<name>"), played by the client.
+		try (InputStream yd = SoulsSounds.class.getResourceAsStream("/data/soulsmode/ds2/you_died.json")) {
+			if (yd != null) {
+				String name = JsonParser.parseReader(new InputStreamReader(yd, StandardCharsets.UTF_8)).getAsJsonObject()
+						.get("sound").getAsString();
+				ResourceLocation id = SoulsMode.id("menu." + name);
+				if (!BuiltInRegistries.SOUND_EVENT.containsKey(id)) {
+					Registry.register(BuiltInRegistries.SOUND_EVENT, id, SoundEvent.createVariableRangeEvent(id));
+				}
+			}
+		} catch (java.io.IOException e) {
+			throw new IllegalStateException("cannot read you_died.json", e);
 		}
 		SoulsMode.LOGGER.info("[BSE] DS2 sounds: {} events, {} sound events registered, {} animations with cues",
 				EVENTS.size(), soundIds().size(), ANIMATIONS.size());
@@ -172,6 +188,34 @@ public final class SoulsSounds {
 				name = swingEvent(type, cue.swing());
 			}
 			play(player, name);
+		}
+	}
+
+	/** The event of a bullet FFX's sound (e.g. "alluring_skull_impact"), or null. */
+	public static String bullet(String key) {
+		return BULLETS.get(key);
+	}
+
+	/** Length in seconds of the event's (first) wave, 0 if unknown. */
+	public static float length(String name) {
+		Event ev = name == null ? null : EVENTS.get(name);
+		return ev == null ? 0 : ev.length();
+	}
+
+	/** Plays a DS2 event at a point (a bullet's FFX), heard by everyone in range. */
+	public static void playAt(net.minecraft.server.level.ServerLevel level, net.minecraft.world.phys.Vec3 at, String name) {
+		Event ev = name == null ? null : EVENTS.get(name);
+		if (ev == null) {
+			return;
+		}
+		RandomSource random = level.getRandom();
+		float volume = MIX * ev.volume() * (1 - ev.volumeRandomization() * random.nextFloat());
+		float steps = Math.round((random.nextFloat() * 2 - 1) * ev.pitchSteps());
+		for (Layer layer : ev.layers()) {
+			float semitones = steps + (random.nextFloat() * 2 - 1) * layer.pitchSpread();
+			float layerVolume = layer.volumeMin() + (layer.volumeMax() - layer.volumeMin()) * random.nextFloat();
+			level.playSound(null, at.x, at.y, at.z, layer.sound(), SoundSource.PLAYERS, volume * layerVolume,
+					(float) Math.pow(2, semitones / 12.0));
 		}
 	}
 

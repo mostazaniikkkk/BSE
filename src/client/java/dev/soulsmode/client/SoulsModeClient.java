@@ -13,6 +13,8 @@ public class SoulsModeClient implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
 		SoulsAnimations.init();
+		StatueClient.init();
+		StatusHud.init();
 		dev.soulsmode.client.qa.QaDriver.init();
 		Locomotion.init();
 		dev.soulsmode.client.anim.AirClient.init();
@@ -25,6 +27,9 @@ public class SoulsModeClient implements ClientModInitializer {
 		BlockRenderLayerMap.INSTANCE.putBlock(SoulsBlocks.BLOODSTAIN, RenderType.cutout());
 		StaminaHud.init();
 		RollClient.init();
+		UseCheckClient.init();
+		CovenantAltarClient.init();
+		YouDiedClient.init();
 		AttackClient.init();
 		dev.soulsmode.client.anim.SwingClient.init();
 		FlickInput.init();

@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "soulsmode:item/cracked_red_eye_orb"
+  }
+}

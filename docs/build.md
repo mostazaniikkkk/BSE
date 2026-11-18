@@ -9,6 +9,7 @@ Todo eso lo genera `tools/ds2_build.py` a partir de **tu propia copia** de Dark 
 - **Windows** para el paso de sonidos (usa el FMOD que trae el juego); el resto funciona en cualquier sistema.
 - **Python 3.10 o más nuevo** y sus paquetes: `pip install -r tools/requirements.txt` (pycryptodome, Pillow).
 - **ffmpeg** en el PATH, o la variable `FFMPEG` con la ruta a `ffmpeg.exe` (para pasar los sonidos a .ogg).
+  Tiene que tener `libvorbis` y leer WAV en float (ffmpeg 2.8 no los lee). Sirve el de `pip install imageio-ffmpeg`.
 - **JDK 21 o más nuevo** para Gradle (el proyecto se prueba con JDK 25).
 
 ## Pasos
@@ -42,7 +43,7 @@ Se puede correr uno solo con `--only <paso>` (o varios separados por coma).
 | `player` | Animaciones del jugador | `ds2_anims.py` |
 | `poise` | `poise.json` | `poise.py` |
 | `sounds` | Sonidos `.ogg`, `sounds.json`, `attack_sounds.json` | `sounds.py` |
-| `icons` | Texturas de los objetos, desde los íconos del menú | `icons.py` |
+| `icons` | Texturas de las almas, desde los íconos del menú (los demás ítems son pixel art propio, `tools/item_sprites.py`) | `icons.py` |
 | `lang` | Idiomas: los textos propios del mod (`src/main/lang/`) más los del juego | `lang.py` |
 | `blocks` | Textura del bloque de titanita, a partir del bloque de netherita de Minecraft (lee el jar del cliente que baja Fabric Loom, o `MINECRAFT_JAR`) | `titanite_block.py` |
 

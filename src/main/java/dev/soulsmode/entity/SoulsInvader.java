@@ -424,8 +424,9 @@ public class SoulsInvader extends PathfinderMob {
 				hitWindows.add(w);
 				if (SoulsAttack.npcHit(this, target, attack.damageRate(w), attack.damageFloor(w))) {
 					// The invader builds its hits like an enemy, from its weapon's rows (poise.md s.4.3).
-					dev.soulsmode.SoulsPoise.onHit(target, dev.soulsmode.ds2.Poise.weaponHit(attack.taeId(),
-							attack.hitSlot(w)), this);
+					dev.soulsmode.SoulsPoise.onHit(target, dev.soulsmode.ds2.Poise.weaponHit(
+							dev.soulsmode.SoulsAttack.damageKey(dev.soulsmode.api.SoulsWeapons.movesetFor(getMainHandItem())),
+							attack, attack.hitSlot(w)), this);
 				}
 			}
 		}

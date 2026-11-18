@@ -132,7 +132,8 @@ public final class SoulsIllagers {
 					try {
 						if (mob.doHurtTarget(target) && target instanceof net.minecraft.server.level.ServerPlayer player) {
 							// The illager swings a player weapon moveset: that swing's PDP slot DCP row (poise.md s.4.3).
-							SoulsPoise.onHit(player, dev.soulsmode.ds2.Poise.weaponHit(acting.attack.taeId(),
+							SoulsPoise.onHit(player, dev.soulsmode.ds2.Poise.weaponHit(
+									SoulsAttack.damageKey(SoulsWeapons.movesetFor(mob.getMainHandItem())), acting.attack,
 									acting.attack.hitSlot(window)), mob);
 						}
 					} finally {

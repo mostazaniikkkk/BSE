@@ -102,21 +102,21 @@ public final class GripClient {
 			// the mirror node; the hold phase is baked into the locomotion (_2w_<stance>[_l], tools/re/ds2_anims.py).
 			boolean left = grip == Moveset.Grip.POWER_STANCE_LEFT;
 			var data = dev.soulsmode.ds2.PowerStance.data(dev.soulsmode.SoulsAttack.damageKey(
-					SoulsWeapons.movesetFor(left ? player.getOffhandItem() : player.getMainHandItem())));
+					SoulsWeapons.movesetFor(left ? player.getOffhandItem() : player.getMainHandItem(), left)));
 			if (data == null) {
 				return "";
 			}
 			int stance = left ? data.stanceLeft() : data.stanceRight();
 			// Right after a weapon change the grip is still the power stance until the server's GripState arrives, and
 			// the newly held item may have a stance with no exported _2w_ clips (fists 204610: crash 2026-11-03).
-			var clips = dev.soulsmode.ds2.Weapons.raw().getAsJsonObject("powerStanceClips");
+			var clips = dev.soulsmode.ds2.Weapons.powerStanceClips();
 			if (clips == null || !clips.has(String.valueOf(stance))) {
 				return "";
 			}
 			return "_2w_" + stance + (left ? "_l" : "");
 		}
 		boolean left = grip == Moveset.Grip.TWO_HANDED_LEFT;
-		return SoulsWeapons.grip(SoulsWeapons.movesetFor(left ? player.getOffhandItem() : player.getMainHandItem()))
+		return SoulsWeapons.grip(SoulsWeapons.movesetFor(left ? player.getOffhandItem() : player.getMainHandItem(), left))
 				.map(g -> "_2h_" + g.twoHandStance() + (left ? "_l" : "")).orElse("");
 	}
 

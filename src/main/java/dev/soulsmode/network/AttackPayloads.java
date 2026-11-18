@@ -16,7 +16,9 @@ public final class AttackPayloads {
 	 * movement direction, (0, 0) for none; {@code flick}: the forward push of the movement input that the jump attack
 	 * and the kick need (FUN_140396e60, read on the client where the input is).
 	 */
-	public record Request(boolean heavy, boolean leftHand, float dx, float dz, boolean flick) implements CustomPacketPayload {
+	/** {@code predicted}: the client already plays it from the press (latency compensation, SoulsAttack.start). */
+	public record Request(boolean heavy, boolean leftHand, float dx, float dz, boolean flick, boolean predicted)
+			implements CustomPacketPayload {
 		public static final Type<Request> TYPE = new Type<>(SoulsMode.id("attack_request"));
 		public static final StreamCodec<RegistryFriendlyByteBuf, Request> CODEC = StreamCodec.composite(
 				ByteBufCodecs.BOOL, Request::heavy,
@@ -24,6 +26,7 @@ public final class AttackPayloads {
 				ByteBufCodecs.FLOAT, Request::dx,
 				ByteBufCodecs.FLOAT, Request::dz,
 				ByteBufCodecs.BOOL, Request::flick,
+				ByteBufCodecs.BOOL, Request::predicted,
 				Request::new);
 
 		@Override
@@ -111,13 +114,15 @@ public final class AttackPayloads {
 
 	/**
 	 * Server -> clients: the swing speed of the attack the player just started (dev.soulsmode.ds2.SwingSpeed): its clip
-	 * runs at {@code rate} inside the AttackSpeedControl 151 window. Sent after Start, only when the rate is not 1.
+	 * runs at {@code rate} inside the AttackSpeedControl 151 window, and the whole clip at {@code clipRate}
+	 * (dev.soulsmode.SoulsWater: 0.9 in shallow water). Sent after Start, only when either is not 1.
 	 */
-	public record Swing(int entityId, float rate) implements CustomPacketPayload {
+	public record Swing(int entityId, float rate, float clipRate) implements CustomPacketPayload {
 		public static final Type<Swing> TYPE = new Type<>(SoulsMode.id("attack_swing"));
 		public static final StreamCodec<RegistryFriendlyByteBuf, Swing> CODEC = StreamCodec.composite(
 				ByteBufCodecs.VAR_INT, Swing::entityId,
 				ByteBufCodecs.FLOAT, Swing::rate,
+				ByteBufCodecs.FLOAT, Swing::clipRate,
 				Swing::new);
 
 		@Override

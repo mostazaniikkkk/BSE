@@ -43,6 +43,34 @@ public final class SoulsAttachments {
 			SoulsMode.id("bonfires_kindled"),
 			builder -> builder.persistent(Codec.INT).copyOnDeath());
 
+	/** Active bonfires this player has broken in Souls Mode (SoulsGiants: every third one brings the Last Giant). */
+	public static final AttachmentType<Integer> BONFIRES_BROKEN = AttachmentRegistry.create(
+			SoulsMode.id("bonfires_broken"),
+			builder -> builder.persistent(Codec.INT).copyOnDeath());
+
+	/**
+	 * The last bonfire rested at or travelled to (DS2's eventMgr+0x164 record, FUN_14044fe30, bonfire.md): where the
+	 * Homeward Bone goes (SoulsHomeward). Kept across deaths.
+	 */
+	public static final AttachmentType<KnownBonfire> LAST_BONFIRE = AttachmentRegistry.create(
+			SoulsMode.id("last_bonfire"),
+			builder -> builder.persistent(KnownBonfire.CODEC).copyOnDeath());
+
+	/** DS2's active covenant id (status +0x1ad; 0 = none; docs/research/covenants.md). Kept across deaths. */
+	public static final AttachmentType<Integer> COVENANT = AttachmentRegistry.create(
+			SoulsMode.id("covenant"),
+			builder -> builder.persistent(Codec.INT).copyOnDeath());
+
+	/** DS2's covenant points by covenant id (status +0x1c2 + 2 id); all kept when changing covenant. */
+	public static final AttachmentType<java.util.Map<String, Integer>> COVENANT_POINTS = AttachmentRegistry.create(
+			SoulsMode.id("covenant_points"),
+			builder -> builder.persistent(Codec.unboundedMap(Codec.STRING, Codec.INT)).copyOnDeath());
+
+	/** Covenant rewards already given (covenant id x 10 + rank; x 10 + 0 = the joining lot), like DS2's lot flags. */
+	public static final AttachmentType<java.util.List<Integer>> COVENANT_REWARDS = AttachmentRegistry.create(
+			SoulsMode.id("covenant_rewards"),
+			builder -> builder.persistent(Codec.INT.listOf()).copyOnDeath());
+
 	/** The player has already joined this Souls-like world once (SoulsWorld). */
 	public static final AttachmentType<Boolean> SOULS_LIKE_JOINED = AttachmentRegistry.create(
 			SoulsMode.id("souls_like_joined"),
@@ -60,6 +88,35 @@ public final class SoulsAttachments {
 	public static final AttachmentType<Integer> ACTIVE_SPELL = AttachmentRegistry.create(
 			SoulsMode.id("active_spell"),
 			builder -> builder.persistent(Codec.INT).copyOnDeath());
+
+	/**
+	 * A petrified statue (SoulsStatues): a mob held in stone until a Fragrant Branch of Yore frees it. Saved with the
+	 * mob and synced so every client draws it in stone.
+	 */
+	public static final AttachmentType<Boolean> PETRIFIED = AttachmentRegistry.create(
+			SoulsMode.id("petrified"),
+			builder -> builder.persistent(Codec.BOOL)
+					.syncWith(net.minecraft.network.codec.ByteBufCodecs.BOOL,
+							net.fabricmc.fabric.api.attachment.v1.AttachmentSyncPredicate.all()));
+
+	/**
+	 * The player died of petrification (SoulsStatus): the body is drawn in stone until it is removed. Not saved and not
+	 * copied on death (the respawned player is a new entity).
+	 */
+	public static final AttachmentType<Boolean> PETRIFIED_DEATH = AttachmentRegistry.create(
+			SoulsMode.id("petrified_death"),
+			builder -> builder.syncWith(net.minecraft.network.codec.ByteBufCodecs.BOOL,
+					net.fabricmc.fabric.api.attachment.v1.AttachmentSyncPredicate.all()));
+
+	/**
+	 * {petrification meter, curse meter (0..100), curse entry left (0..1)} for the player's HUD (SoulsStatus); synced to
+	 * that player only.
+	 */
+	public static final AttachmentType<java.util.List<Float>> STATUS_METERS = AttachmentRegistry.create(
+			SoulsMode.id("status_meters"),
+			builder -> builder.syncWith(net.minecraft.network.codec.ByteBufCodecs.FLOAT
+							.apply(net.minecraft.network.codec.ByteBufCodecs.list()),
+					net.fabricmc.fabric.api.attachment.v1.AttachmentSyncPredicate.targetOnly()));
 
 	private SoulsAttachments() {
 	}

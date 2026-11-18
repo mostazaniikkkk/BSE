@@ -22,6 +22,8 @@ public final class SwingClient {
 		final Attack attack;
 		final boolean mirrored;
 		float rate = 1;
+		/** The whole clip's speed (shallow water, SoulsWater). */
+		float clipRate = 1;
 		int ticks;
 
 		Swing(Attack attack, boolean mirrored) {
@@ -40,6 +42,7 @@ public final class SwingClient {
 			Swing swing = SWINGS.get(payload.entityId());
 			if (swing != null) {
 				swing.rate = payload.rate();
+				swing.clipRate = payload.clipRate();
 			}
 		});
 		ClientTickEvents.END_CLIENT_TICK.register(SwingClient::tick);
@@ -63,10 +66,28 @@ public final class SwingClient {
 		return swing == null ? 1 : swing.rate;
 	}
 
+	/** The whole-clip speed of a player's current swing (shallow water), 1 without one (QA). */
+	public static float clipRate(int entityId) {
+		Swing swing = SWINGS.get(entityId);
+		return swing == null ? 1 : swing.clipRate;
+	}
+
+	/** The animation of the player's current swing, or null (QA). */
+	public static String animation(int entityId) {
+		Swing swing = SWINGS.get(entityId);
+		return swing == null ? null : swing.attack.animation();
+	}
+
+	/** Whether the player has a swing running (QA). */
+	public static boolean swinging(int entityId) {
+		return SWINGS.containsKey(entityId);
+	}
+
 	/** The local player's clip time after {@code seconds} of its current attack. */
 	public static float clipTime(int entityId, Attack attack, float seconds) {
 		Swing swing = SWINGS.get(entityId);
-		return swing == null || swing.attack != attack ? seconds : SwingSpeed.clipTime(attack, swing.rate, seconds);
+		return swing == null || swing.attack != attack ? seconds
+				: SwingSpeed.clipTime(attack, swing.rate, seconds * swing.clipRate);
 	}
 
 	private static void tick(Minecraft client) {
@@ -79,17 +100,18 @@ public final class SwingClient {
 			Map.Entry<Integer, Swing> e = it.next();
 			Swing swing = e.getValue();
 			swing.ticks++;
-			float clip = SwingSpeed.clipTime(swing.attack, swing.rate, swing.ticks / 20f);
+			float clip = SwingSpeed.clipTime(swing.attack, swing.rate, swing.ticks / 20f * swing.clipRate);
 			if (clip >= swing.attack.duration()) {
 				it.remove();
 				continue;
 			}
-			if (swing.rate == 1 || !(client.level.getEntity(e.getKey()) instanceof AbstractClientPlayer player)) {
+			if (swing.rate == 1 && swing.clipRate == 1
+					|| !(client.level.getEntity(e.getKey()) instanceof AbstractClientPlayer player)) {
 				continue;
 			}
 			// The speed for the coming tick: the clip time it has to advance in 1/20 s, so the window's edges fall
 			// between ticks without drifting from the server's clip time.
-			float next = SwingSpeed.clipTime(swing.attack, swing.rate, (swing.ticks + 1) / 20f);
+			float next = SwingSpeed.clipTime(swing.attack, swing.rate, (swing.ticks + 1) / 20f * swing.clipRate);
 			SoulsAnimations.speed(player, swing.mirrored, (next - clip) * 20f);
 		}
 	}

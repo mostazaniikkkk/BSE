@@ -59,8 +59,33 @@ El formato es el mismo de las armas de BSE (`data/soulsmode/ds2/weapons.json`, e
   `regenBlock`, `leftAuthored`.
 - Limitación: las animaciones de víctima de los críticos (backstab, riposte) usan las de BSE.
 
-Las armas de datapack sin material no tienen nivel de mejora (+0); si se asignan a ítems vanilla con material, usan
-la tabla de mejora por material de BSE.
+**Todo lo que BSE lee de sus propias armas se lee también del arma de datapack** (con `extends`, lo hereda del padre):
+- **Refuerzo e infusiones**: `attack.reinforceCost` (`[almas, material, cantidad]` por nivel), `infusionMask`,
+  `infusions`, `mundaneFactor`. El material puede ser un id de DS2 (titanitas de BSE) **o el id de cualquier ítem**:
+  `[1850, "darktwo:hueso_de_dragon_petrificado", 1]`. Sin `reinforceCost` el arma queda en +0. El máximo por material
+  de Minecraft (+5 / +10 / +15) es el mismo de las armas de BSE.
+- **Postura doble**: `powerStanceCategory`, `powerStanceStance` (`right` / `left`) y el moveset `power_stance`. Las
+  posturas nuevas traen sus clips en `"powerStanceClips"` del archivo (mismo formato que `weapons.json`).
+- **Ataque con guardia puesta**: moveset `guard_attack` (`light`, `light_combo`; slots 57 / 58).
+- **Capa de guardia**: `guardSpeed`, `guardCancelCategory`, `guardCancelCategoryLacking` en los slots de guardia.
+- **Estabilidad**: `attackPoiseFactor` (WeaponParam +0xb8) y, por slot, `"poise"`: las filas de daño de sus PDP 0..2
+  en el formato de `poise.json → playerWeapons`. En `"animations"`: `superArmor`, `noReaction`, `poiseFactor`
+  (ventanas TAE 110500 / 110600 / 111900).
+- **Contraataque**: `counterRate` (WeaponTypeParam +0x6c) en el arma, `counterRates` (PDP +0x20 de cada PDP) en el
+  slot, y `counter` (ventanas TAE 111600) en la animación. Quien recibe un golpe dentro de una ventana `counter` de su
+  propio ataque recibe el daño × `counterRates` del golpe × `counterRate` del arma del atacante.
+- **Balas de los ataques** (onda, fuego…): `"bullets"` del arma (mapa de balas, mismo formato que los hechizos),
+  `"bullets": ["clave", null, null]` en el slot (ranuras 0..2, de WeaponAttackMotionParam +0x38..+0x4c), y `shots`
+  (`[[tiempo, ranura]]`, TAE 2300) en la animación. El origen es el dummy `damage.dummyPoly` de la bala en
+  `hitDummies` (o `dummyPolys`) del arma sobre el hueso del arma (`weaponBones` de la animación, para animaciones
+  propias); sale hacia donde mira el personaje.
+- **Efecto propio del arma** (ItemParam +0x04): `"spEffect": {"instructions": [...]}` con
+  - `{"type": "atkRateBySoul", "low", "high", "rateLow", "rateHigh"}` (`1000[14]`): factor por las almas que lleva;
+  - `{"type": "atkRateByHollowCount", "counter": "hollow" | "sin", "low", "high", "rateLow", "rateHigh"}` (`1000[15]`):
+    factor por el contador de hueco o de pecado (BSE no tiene pecado: vale 0);
+  - `{"type": "changeWeaponParam", "weapon": "<arma>"}` (`100110[04]`): en la mano izquierda el arma usa otra arma
+    entera (otra arma de datapack o de BSE).
+  Los dos factores multiplican solo la parte de stats del daño (S), y solo en los golpes de la mano que lo lleva.
 
 ## Armadura
 
@@ -159,8 +184,11 @@ El motor es el de DS2 (sintonía, usos, lanzamiento, proyectiles y daño salen d
 - Se sintonizan en la hoguera (botón **Sintonizar hechizos**); se recargan al descansar y al reaparecer. Se cambia el
   activo con la tecla **Cambiar hechizo** (B por defecto).
 - Se lanzan con el ataque ligero de la mano que tiene el catalizador. Los catalizadores de BSE son
-  `soulsmode:sorcerers_staff`, `soulsmode:clerics_chime` y `soulsmode:pyromancy_flame` (ningún ítem vanilla los usa:
-  asígnalos con el componente `soulsmode:weapon` o con un arma de datapack que los extienda).
+  `soulsmode:sorcerers_staff`, `soulsmode:clerics_chime` y `soulsmode:pyromancy_flame`. Desde 0.3.1 existen como
+  ítems con ese mismo id (Bastón de hechicero, Campana sagrada del clérigo, Llama de piromancia; pestaña de combate del
+  creativo y con receta: pepita de hierro sobre un palo, 2 lingotes de cobre sobre una campana, Llama de la adversidad
+  sobre un cuero). Otros ítems también pueden ser
+  catalizadores con el componente `soulsmode:weapon` o con un arma de datapack que los extienda.
 - Nombre: clave `spell.<namespace>.<nombre>` en el `lang` del resource pack.
 - Animaciones propias: `prepare` / `cast` pueden ser ids del resource pack, con sus tiempos en
   `"castAnimations"` del mismo archivo (formato de `castAnimations` de `weapons.json`, incluido `<prepare>_hold`).
@@ -172,7 +200,9 @@ El motor es el de DS2 (sintonía, usos, lanzamiento, proyectiles y daño salen d
   Así funcionan los milagros de curación (Curar, Gran curación, Luz solar…). A quién afecta lo decide `teams` de cada
   fila de daño: 4 = el lanzador, 8 = aliados (jugadores a los que no puede dañar, mascotas propias), 0x10 = hostiles.
 - Buffs soportados: `split` y `attack` (arma de una mano según la ranura `effectSlot` 26 izquierda / 27 derecha),
-  `defence`, `statRate` índice 26 (daño recibido), `statAdd` índice 1 (peso), `movementRate`.
+  `defence`, `statRate` índice 26 (daño recibido), `statAdd` índice 1 (peso), `movementRate`, `statusFlag` (`1000[03]`,
+  `{"bit", "duration"}`; el bit 10 quita los sonidos suprimibles del jugador: caminar, trotar, correr, paso atrás,
+  salto; lo usa Silencio).
 - Objetivos soportados: 0 y 1/2 (arma / escudo de la otra mano, encantable). Aún no soportado: Homeward / Guidance (3/4), emisores sin límite de disparos y hechizos
   que gastan almas.
 
@@ -181,8 +211,13 @@ El motor es el de DS2 (sintonía, usos, lanzamiento, proyectiles y daño salen d
 Para lo que los datos de DS2 no cubren, un hechizo puede llevar un script: `"script": "mipack:nombre"` en su JSON y el
 archivo en `data/mipack/soulsmode/script/nombre.lua`. Corre **solo en el servidor** (los jugadores no instalan nada),
 en Lua 5.2 (Cobalt) con `string`, `table`, `math`, `coroutine` y funciones base; no hay `load`, `io`, `os` ni acceso a
-Java. Cada llamada tiene 50 ms; si se pasa, se corta y queda en el log. Los errores salen en el log como
-`[BSE] script …`.
+Java. Cada llamada tiene 50 ms; si se pasa, se corta y queda en el log (el corte no se puede atrapar con `pcall`,
+`xpcall` ni una corrutina). Los errores salen en el log como `[BSE] script …`, y un error en una llamada no afecta a
+las siguientes: las variables globales del script se conservan. Si un hechizo o un enemigo nombra un script que no
+existe o que no cargó, el log lo avisa al cargar el datapack.
+
+Límites que el script debe cuidar por su cuenta (el mod no los pone): no hay tope de memoria (lo que el script guarda
+en variables globales queda hasta el siguiente `/reload`), ni de balas por llamada, ni de líneas de `print`.
 
 Funciones que el script puede definir (todas opcionales):
 - `on_cast()`: en cada evento de disparo de la animación de lanzamiento (después de la bala propia del hechizo, si su
@@ -196,8 +231,11 @@ La API es la tabla `bse` (las piezas del motor de DS2, nunca Minecraft directo):
 - `bse.stat("intelligence")`: atributo del lanzador.
 - `bse.near(radio)`: ids de las entidades vivas cerca del lanzador (radio máx. 32).
 - `bse.emit(bala [, x, y, z [, dx, dy, dz]])`: emite una de las balas del hechizo (con su emisor de `BulletParam`:
-  abanico, disparos, rastreo al objetivo fijado), con el poder de ataque del lanzamiento.
+  abanico, disparos, rastreo al objetivo fijado), con el poder de ataque del lanzamiento. Es un error si la posición
+  no está en un chunk cargado, si la dirección es cero o si algún número es NaN o infinito.
 - `bse.effect(id, speffect)`: aplica uno de los SpEffects del hechizo a una entidad.
+- `bse.animate(id, animación [, segundos])`: el jugador `id` reproduce un clip de c0001 retenido en el sitio (igual que
+  `/souls animate`, abajo); devuelve los segundos que lo retiene.
 - `print(...)`: al log del servidor.
 
 Ejemplo (`tools/qa/testpack`): `triple_arrow.lua` lanza tres Flechas del alma en abanico.
@@ -226,11 +264,37 @@ los params de DS2 (`docs/research/enemies.md`, `docs/research/enemy_ai.md`):
 | `script` | ESD superior | Lua opcional (abajo) |
 | `boss` | | `true`: barra de vida de jefe (con su nombre) para los jugadores dentro de `followRange` |
 | `turn` [lento, rápido, velocidad] | EnemyMoveParam +0x2c / +0x30 / +0x20 | giro en rad/s fuera de ataques: interpola de lento a rápido según velocidad / `velocidad` (`FUN_1403a28b0`). Sin él, el giro de Minecraft |
+| `targets` `{players, entities}` | (facción, en el ESD) | opcional: a quién persigue (abajo). Sin él, a cualquier jugador |
+
+**Objetivos (`targets`).** El enemigo persigue al objetivo válido más cercano que ve dentro de `followRange`, y lo
+suelta cuando deja de ser válido (por ejemplo, si el jugador se pone un disfraz):
+- `players`: `true` (por defecto) = todos los jugadores; `false` = ninguno; o el id de un predicado
+  (`data/<ns>/predicate/`) que el jugador debe cumplir, evaluado como `execute if predicate` con el jugador como
+  `this`. Un jugador que no es objetivo tampoco recibe sus golpes.
+- `entities`: lista de tipos de entidad (`"minecraft:zombie"`) o etiquetas (`"#minecraft:skeletons"`) que también son
+  objetivo. Otros enemigos de BSE nunca lo son. Los mobs de Minecraft responden al golpe con su IA normal.
+
+```json
+"targets": {
+  "players": "darktwo:heide_target",
+  "entities": ["#minecraft:zombies", "#minecraft:skeletons"]
+}
+```
+con `data/darktwo/predicate/heide_target.json`: Modo Souls y sin la etiqueta del disfraz:
+```json
+{"condition": "minecraft:all_of", "terms": [
+  {"condition": "soulsmode:souls_mode"},
+  {"condition": "minecraft:inverted", "term": {"condition": "minecraft:entity_properties", "entity": "this",
+    "predicate": {"nbt": "{Tags:[\"darktwo.heide_disguise\"]}"}}}
+]}
+```
 
 Cada ataque (`attacks`) es una entrada de `EnemyBehavior*Param` con su fila `EnemyDamageParam`:
 - `name`, `animation`, `duration` (s), `hits`: ventanas `[inicio, fin]` en segundos (los eventos de golpe del TAE), o
   `{"window": [inicio, fin], "damage": {...}}` cuando cada golpe tiene su propia fila EDP (en DS2 el evento nombra la fila).
-- `damage` (la fila por defecto de los golpes): `physical`, `magic`, `lightning`, `fire`, `dark`, `floor`, `rate`, `staminaDamage` (EDP +0x0c..+0x24).
+- `damage` (la fila por defecto de los golpes): `physical`, `magic`, `lightning`, `fire`, `dark`, `floor`, `rate`, `staminaDamage` (EDP +0x0c..+0x24),
+  y opcionales `petrify` y `curse`: la acumulación de petrificación (par de tipo 12 de la fila EDP) y de maldición
+  (tipo 9) que el golpe suma al jugador, multiplicada por `attackMultiplier` (abajo, "Petrificación y maldición").
   Contra un jugador en modo Souls: físico `max(piso, 10·V − def)/12·rate`, elementos `max(piso, 6·V)/6·(1 − abs)·rate`
   con la defensa y absorciones de su equipo; contra otros, defensa 0.
 - `reach`, `angle`: argumentos de la subrutina de ataque de DS2 (`S2147483595`): dentro del alcance y del ángulo el
@@ -259,6 +323,59 @@ mismas piezas). Mientras el enemigo tiene objetivo y no está acercándose ni at
 Si el script no define `on_think`, decide la tabla declarativa. Ejemplo (`tools/qa/testpack`): `hollow_lua.lua` con la
 forma de la tabla de `ai102000` (cerca: 50 % `slash`; si no, `combo`).
 
+## Petrificación y maldición
+
+Dos medidores del jugador en Modo Souls (`docs/research/petrification.md`). BSE no trae fuentes propias: las ponen los
+datapacks.
+- **Fuentes**: los campos `petrify` / `curse` de la fila de daño de un enemigo (arriba), el comando
+  `/souls status <jugadores> <petrify|curse> <cantidad>` (permiso 2) y `bse.status(id, "petrify"|"curse", cantidad)`
+  en Lua. La cantidad es el valor del golpe: entra `cantidad × (1 − resistencia)`.
+- **Resistencia**: la del jugador de DS2: stats (petrificación `(3·Adaptabilidad + Vigor)/4`, maldición
+  `(3·Adaptabilidad + Sintonía)/4`) más la armadura.
+- **Medidor**: 100. Medio segundo después del último golpe baja solo: de lleno a vacío en 45 s (petrificación) o 22 s
+  (maldición). Descansar en una hoguera o reaparecer lo vacía.
+- **Petrificación llena**: muerte instantánea (tipo de daño `soulsmode:petrified`), el cuerpo queda en piedra 5.25 s y la
+  muerte suma **5** de Hueco en vez de 1.
+- **Maldición llena**: +1 de Hueco al momento y el mensaje "¡Sufres maldición!"; durante 2 s no acumula más.
+
+## Estatuas petrificadas
+
+BSE genera en la superficie del Overworld aldeanos, aldeanos zombi, pillagers y vendedores ambulantes en piedra
+(característica `soulsmode:petrified_statue`, rara). Clic derecho sin la **Rama de antaño fragante**
+(`soulsmode:fragrant_branch`): "Una estatua bloquea el camino". Con la rama pregunta "¿Usar Rama de antaño fragante?";
+al aceptar el jugador reza (clip de DS2 de 4.7 s), a 1.3 s se gasta una rama y el mob vuelve a la vida. El mob liberado
+no desaparece nunca solo. La rama sale en cofres (puestos de saqueadores, mazmorras, minas, portales en ruinas,
+templos del desierto y de la jungla).
+
+## Animación forzada (`/souls animate`)
+
+`/souls animate <jugadores> <animación> [segundos]` (permiso 2) hace que el jugador reproduzca un clip de c0001 como
+víctima de un agarre:
+- `animación`: un id TAE de DS2 (`801010` o `soulsmode:801010`: el clip de BSE `soulsmode:ds2_801010`) o el id de una
+  animación del resource pack (`darktwo:mimic_catch`, archivo en `assets/darktwo/player_animations/`).
+- `segundos`: cuánto lo retiene. Sin él se usa la `duration` de la tabla de animaciones (la de BSE o la de
+  `"animations"` de un arma de datapack); si no hay, el comando falla.
+- Mientras dura, el jugador queda quieto en su sitio y no puede atacar, esquivar ni usar objetos. **No es invulnerable**:
+  la función o el script puede matarlo cuando toque (`kill`, `damage`).
+- Devuelve los ticks que lo retiene: `execute store result score @s x run souls animate @s 801010` para programar lo
+  que sigue (`schedule function`).
+
+## Solo para el Modo Souls (etiqueta, condición y recetas)
+
+- **Etiqueta del jugador** `soulsmode.souls_mode`: BSE la pone al entrar al Modo Souls y la quita al salir (también al
+  conectarse y al reaparecer). Sirve en funciones y selectores: `@a[tag=soulsmode.souls_mode]`.
+- **Condición de botín / predicado** `soulsmode:souls_mode`: verdadero si la entidad es un jugador en Modo Souls.
+  `{"condition": "soulsmode:souls_mode", "entity": "this"}`; `entity` es `this` (por defecto), `attacker`,
+  `direct_attacker` o `attacking_player`. Vale en tablas de botín, en `data/<ns>/predicate/` y en logros.
+- **Receta solo del Modo Souls**: el tipo `soulsmode:souls_mode` envuelve cualquier receta de crafteo:
+  ```json
+  {"type": "soulsmode:souls_mode",
+   "recipe": {"type": "minecraft:crafting_shaped", "pattern": ["#"], "key": {"#": {"item": "minecraft:dirt"}},
+              "result": {"id": "minecraft:diamond"}}}
+  ```
+  La mesa de crafteo y la cuadrícula del inventario dan el resultado solo a un jugador en Modo Souls; el crafter
+  (sin jugador) nunca la hace. El libro de recetas la muestra igual a todos.
+
 ## Etiquetas y datos que un datapack puede cambiar
 
 Además del contenido de arriba, BSE lee estos archivos de datapack. Un datapack del servidor puede reemplazarlos con
@@ -272,6 +389,7 @@ el mismo nombre (y `"replace": true` en las etiquetas para quitar valores en vez
 | `soulsmode:boss_bar` | Muestran barra de jefe a los jugadores del modo Souls cercanos | devastador, warden |
 | `soulsmode:winged` | Reciben el doble de daño de la Resina de pino dorada (rayo) | murciélago, abeja, loro, phantom, gallina, allay, vex, dragón |
 | `soulsmode:dark_weak` | Reciben el doble de daño de la Resina de pino oscura | enderman, endermite, shulker, dragón, vex, allay |
+| `soulsmode:hollow_soldier` | Reciben los golpes del jugador como el Hollow Soldier de DS2 (320 PV, defensa 317): la Longsword +0 los mata en 4 golpes | zombi, husk, ahogado, aldeano zombi, esqueleto, stray, bogged |
 
 ### Etiquetas de biomas (`data/soulsmode/tags/worldgen/biome/`): probabilidad de invasión
 | Etiqueta | Probabilidad por tirada (cada 5 min) | Por defecto |

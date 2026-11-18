@@ -186,3 +186,69 @@ usuario.
 - `+0x4a` = 99 como máximo en inventario (por datos), cuándo se descuenta el objeto, y `+0x2c/+0x30/+0x34`.
 - Qué habilitan `ItemUseCancelControl` e `ItemUseAdjustControl`.
 - Los bytes de ItemUsageParam 1700 salvo `+5` bit 0.
+
+# Calavera seductora (Alluring Skull, ItemParam 60530000)
+
+Pedido del usuario (2026-11-10). Investigación por un agente de solo lectura (2026-11-10); archivos de trabajo en
+`D:\Reversing\DS2\out\alluring\` (`bullet.txt`, `logic_skull.txt`, `texts.json`, decompilados `f477c0.c`, `tbc.c`,
+`s48.c` / `s48.txt`, ESD en `esd\` y `txt\`). Al contrario que Lloyd y la bomba, **el efecto sí se porta de DS2**;
+lo único del usuario es a qué enemigos afecta y la receta.
+
+## 1. ItemParam 60530000
+| Campo | Valor |
+|---|---|
+| Icono `+0x00` / SpEffect `+0x04` | 60530000 / 60530000 |
+| Modelo en mano `+0x08` | 843 |
+| `+0x2c/+0x30/+0x34` (sin decodificar) | 306 / 300 / 30 |
+| `+0x38` velocidad de uso | 0.7 |
+| `+0x40` ItemTypeParam | **900** (la misma fila que Lloyd) |
+| `+0x44` ItemUsageParam | 1700 (no se usa en escalera) |
+| `+0x4a` máximo | **99** |
+
+## 2. Animación
+ItemTypeParam 900 → categoría 100 → **`a00_18_0100 ItemUseThrowOverhand`** (TAE 180100), la misma que Lloyd (§1):
+2.667 s, la bala sale a **0.533 s** (TAE 220000), bloqueo de esquiva / ataque / guardia / movimiento 0–1.5 s.
+
+## 3. Balas
+`SpEffectActiveItem.emevd` 60530000: `100120[00] (60530000, 60530000, 0, 1.0)`.
+
+**Bala BulletParam 60530000 + PDP 60530000**
+| Campo | Valor |
+|---|---|
+| Vida `+0x48` | **5.0 s** |
+| Velocidad `+0x4c` | **10.0** m/s; aceleración 0; máximo 50 |
+| Gravedad `+0x5c × +0x64` | **3.0 × 2.0 = 6.0 m/s²** desde t = 0 |
+| Ángulo vertical `+0x14` | −0.0349 rad: **2° hacia arriba** |
+| Origen / dirección | dummy 20 / apuntado del jugador; sin dispersión ni homing |
+| Contacto `+0xb0..+0xb3` | 0/0/0/2: se rompe al tocar personaje o escenario |
+| Hijos `+0xec` / `+0xed` | 1 / **0**: el hijo sale **solo al impactar**; si expira, no hay señuelo |
+| PDP | cápsula r 0.2, **sin daño** |
+
+**Señuelo BulletParam 60530010**: quieto, **vida 5.0 s**, atraviesa todo, sin daño. (La vida real es
+`petición+0x7c × BP+0x48`; ese factor no está trazado para hijos.)
+
+## 4. Cómo atrae (código)
+- `FUN_1404477c0` (al iniciar cada bala, desde `FUN_140445020` en `0x140445463`): si la bala es **60530010** (o
+  31220010, el hechizo Anhelo) crea un `TargetBulletCtrl` (vtable `0x1410cfd88`, `FUN_140247d20`) en la posición de la
+  bala, lo registra en `TargetManager` y avisa a los ChrAi (`FUN_140422d90` → vt+0x58 = `FUN_1404261a0`). No lo crea
+  si el dueño es un personaje de tipo 5..19 (`chr+0xb0 → +0x3c`, sin identificar).
+- Qué enemigos: `FUN_1404261a0` exige `LogicComParam +0x66 == 1` en la fila de lógica del enemigo (91 de 347 filas:
+  huecos, esqueletos, perros, ogros…; los jefes y los pesados no).
+- Qué hace (`FUN_1404399b0`): **solo si su objetivo actual es el lanzador**, cambia el objetivo a la calavera. **No hay
+  radio** en este camino. El objetivo dura lo que el señuelo (5 s).
+
+## 5. Port al mod (`SoulsThrown`, `ThrownSoulsItem`, `AlluringSkullItem`)
+- Lanzamiento y animación: los de DS2 (los de Lloyd). Vuelo: la bala de DS2 (10 m/s = 0.5 bloques/tick, 2° arriba,
+  gravedad 6 m/s², sin rozamiento, 5 s de vida; si expira no atrae).
+- Al romperse: todo mob del mundo (sin radio) **no-muerto de Minecraft** (`#minecraft:undead`, regla del usuario en lugar
+  de `LogicComParam +0x66`) **cuyo objetivo sea el lanzador** pierde ese objetivo y durante 5 s solo camina hacia la
+  calavera (no ataca). Después vuelve a buscar objetivos como siempre.
+- Receta (usuario): 4 huesos en cruz alrededor de cualquier alma (`#soulsmode:souls`) → 4 calaveras.
+
+## Sin confirmar (Calavera seductora)
+- Qué hace cada ESD con un objetivo de tipo 4 (si lo ataca o solo se acerca), cuándo se suelta el objetivo al morir el
+  señuelo y a quién vuelve a apuntar el enemigo.
+- `petición+0x7c` (factor de vida del hijo), args 3 y 4 de `100120[00]`.
+- Qué es `chr+0xc8` (+0x20, +0xfc bit 8), escrito también al cambiar el objetivo.
+- Tipos de personaje 5..19 que no crean señuelo.
+- De dónde sale el id de `LogicComParam` de cada enemigo (la relación id ↔ enemigo es por coincidencia de números).

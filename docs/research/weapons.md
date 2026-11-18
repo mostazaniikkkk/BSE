@@ -182,6 +182,22 @@ Ejemplo, Dagger (categoría 1000), una mano:
 
 Herramientas: `tools/re/params.py`, `tools/re/slots.py <categoría>`, `tools/re/disasm.py`, `tools/re/trace.py`.
 
+## Parry: revisión de la lentitud (2026-11-10)
+Reporte del QA: el parry "funciona, pero no es reactivo y es muy lento para ser predictivo".
+- **Lo de DS2 está bien portado**: escudo de Minecraft = Drangleic Shield (escudo mediano, `WeaponParam +0x74` = 0.68),
+  `a45_01_0290` con el TAE 1220 de 0.1667 a 0.4 s → parry activo de **0.242 a 0.4 s** tras apretar (0.158 s de
+  ventana). La velocidad de golpe (`SwingSpeed`) no lo toca: su ventana empieza en 0.55 s. Los escudos chicos de DS2
+  son más rápidos (`a44_01_0290`), pero el escudo vanilla es el mediano.
+- **Lo que lo hacía más lento que DS2** (del mod, no de DS2):
+  1. **Latencia**: en DS2 el golpe se resuelve en la consola del que parrea (marca de autoridad `vt+0x38`). En el mod
+     lo resolvía el servidor desde que le llegaba el paquete, y la animación salía cuando volvía la respuesta: un ping
+     completo tarde en un servidor remoto. **Corregido** (decisión del usuario, 2026-11-10): el cliente arranca la
+     animación al apretar (`AttackClient.predict`) y el servidor fecha el ataque desde la pulsación (medio ping
+     antes, `SoulsAttack.start`). Solo para ataques desde quieto a una mano (ligero / fuerte de cualquier mano, que
+     incluye el parry); los combos y los ataques en movimiento siguen sin compensar.
+  2. **Sin búfer de entrada**: una pulsación hecha antes de que termine el bloqueo de la acción anterior se pierde (en
+     DS2 queda guardada, pista `InputControl`). En investigación.
+
 ## Parry (efecto)
 - **Corrección**: `thunk_FUN_141ca218b(b8, i)` **no** lee el contador `b8+0x4d0+i·4`. Prueba el bit `i` del bitset<62>
   en `b8+0x4b8` (desensamblado en `141b9e48c`: `bt [b8+0x4b8+(i>>6)*8], i&63`; `i ≥ 0x3e` → "invalid bitset<N>
@@ -393,7 +409,7 @@ Herramientas: `tools/re/params.py`, `tools/re/slots.py <categoría>`, `tools/re/
   - Críticos: `FUN_1403947b0` (acciones 0x18 / 0x17 / 0x16) hace lo mismo con `FUN_14032ce30`.
   - El golpe se construye **una vez**, al empezar la animación.
 - **Eventos TAE**: el `param[0]` de cada evento es el slot que golpea.
-  - 2200 (`FUN_140326e80`): `FUN_1403741c0` copia el slot (`chr+0x230 + 0xf08 + slot·0xc0`). El golpe solo empieza si su
+  - 2200 (`FUN_1403269e0`, DamageCtrl del grupo TAE 1100; `FUN_140326e80` es el ctor de FootEffectCtrl, corregido 2026-11-10): `FUN_1403741c0` copia el slot (`chr+0x230 + 0xf08 + slot·0xc0`). El golpe solo empieza si su
     id PDP ≠ 0.
   - 2201 (`FUN_1403269e0` → `b8+0x290`; `FUN_14015c2d0`): cada evento aplica el golpe **entero**; no se reparte entre
     eventos. El backstab del Longsword tiene dos 2201, así que golpea dos veces.
@@ -1057,3 +1073,45 @@ Scripts y salidas en `D:\Reversing\DS2\out\riposte\` (`tae_crit.txt`, `victim_pa
 ### Implementado: salto que se vuelve ataque en caída
 - Desde los 0.5333 s se guarda la altura de despegue; en el aire, más de 0.5 m (`DAT_1410ac694`) por debajo pasa al
   ataque en caída (tipo 8) con la misma mano (`FUN_1401fcd50`).
+
+## Contraataque, balas de los ataques y efecto propio del arma (2026-11-12)
+Fuente: investigación de DarkTwo (`docs/espadones.md` §10–§12, `D:\Reversing\DS2\out\gs_bullets\`, `gs_tae\`,
+`gs_effects\`) y la del florete (`D:\Reversing\DS2\out\rapier\`).
+
+### Contraataque (TAE 111600)
+- `ChrMorphemeTimeActEventHandler` → DamageActionCtrl (grupo 110000): el evento 111600 pone `c0+0xf4 |= 0x20` mientras
+  dura. Si el personaje recibe un golpe dentro, `FUN_140138d50` multiplica el daño por **PDP +0x20 del golpe ×
+  WeaponTypeParam +0x6c del arma del atacante** (`A+0x80`). Con `b8+0x630 ≠ 0` la rama también se toma (condición sin
+  identificar).
+- Exportado: `animations[tae].counter` (ventanas), `slot.counterRates` (PDP +0x20 por PDP), `weapon.counterRate`
+  (WTP +0x6c: Longsword 1.1, Spear 1.3, Pickaxe 1.5…). 121 animaciones de BSE tienen 111600.
+- Implementado: `SoulsAttack.counterFactor` (víctima: un jugador en Modo Souls dentro de una ventana de su ataque).
+
+### Balas de los ataques (TAE 2300)
+- Al empezar el ataque, `FUN_140392a60` llena las ranuras base+0..2 (base `desc+0x1c`: 0 derecha, 5 izquierda /
+  powerstance) de `chr+0x230 +0x760` con los pares (bala, PDP) de WeaponAttackMotionParam +0x38..+0x4c. El evento 2300
+  (`FUN_140325880`) dispara la ranura `param[0]`; id 0 no dispara. Valor de ataque de la bala: `FUN_140391fe0`.
+- Exportado: `animations[tae].shots` (`[tiempo, ranura]`). Ningún arma de BSE tiene pares ≠ 0 (el exportador avisa si
+  aparece alguno). Las armas de datapack traen `bullets` (arma y slot).
+- Implementado: `SoulsWeaponBullets` (origen: dummy `PDP +0x31` del modelo del arma sobre R_Weapon; dirección: la
+  orientación plana del personaje).
+
+### Efecto propio del arma (ItemParam +0x04)
+- El SpEffect está en `ItemParam +0x04` de la fila cuyo `+0x14` es el arma (`FUN_1401a6890`); se aplica al cambiar el
+  arma activa de una mano (`FUN_140349d30` → `FUN_14034b6b0` → `FUN_14022ed30`, modo 2) en la ranura 0xfc (izquierda) /
+  0xfd (derecha), sin duración.
+- Acciones de ataque (código 8): solo los golpes de la mano de su ranura (`FUN_14021f230`, máscara `5 + (mano ≠ 0)`),
+  y multiplican solo S (`FUN_140391020`).
+- `1000[14]` (`FUN_14021f570`): byte +0 selector (0 = almas en mano, vt+0x10), i32 +4 / +8 bajo / alto, f32 +0xc / +0x10
+  factores. Por debajo de bajo el primero, lineal hasta alto, por encima el segundo (`DAT_1410ac698` = 1.0 asumido).
+- `1000[15]` (`FUN_14021f470`): byte +0 selector (1 = hueco `+0x1ac` vt+0x18, 2 = pecado `+0x1d7` vt+0x20), u8 +1 / +2
+  bajo / alto, f32 +4 / +8 factores; misma curva.
+- `100110[04]` (`FUN_14034a390`): en la mano izquierda el arma usa otra fila (WeaponParam, WRP, categoría, WTP).
+- Armas de BSE con efecto propio **sin portar** (el exportador lo avisa): Llama de piromancia 5400000
+  (`100130[04]` SFX 5423 + `1000[03] (23, 0)`), Arco corto 4200000 (`1000[06] (0 0 0.95 1 1 1 1)`), Ballesta ligera
+  4600000 (`1000[06] (0 2 0.85 1 0.5 1 1)`). `1000[06]` no está decodificado.
+
+### Sin confirmar
+- El primer valor de `100110[04]` (0); el orden entre la resina y el factor sobre S; el modo de dirección / origen de las
+  balas de arma y si buscan objetivo; `desc+0x29 / +0x2a`; si las ranuras 5..7 conservan una bala vieja; para qué sirven
+  las balas de ranura 1 con PDP 2000.

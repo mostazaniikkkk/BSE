@@ -195,7 +195,7 @@ public final class InventoryStats {
 			boolean leftHand, boolean twoHanded, Attributes attributes, int left, int right, int y) {
 		graphics.drawString(font, Component.translatable(hand), left, y, LABEL);
 		y += LINE;
-		net.minecraft.resources.ResourceLocation moveset = dev.soulsmode.api.SoulsWeapons.movesetFor(stack);
+		net.minecraft.resources.ResourceLocation moveset = dev.soulsmode.api.SoulsWeapons.movesetFor(stack, leftHand);
 		String key = dev.soulsmode.SoulsAttack.damageKey(moveset);
 		dev.soulsmode.ds2.Ds2Damage.WeaponData data = dev.soulsmode.ds2.Ds2Damage.weapon(key);
 		float level = dev.soulsmode.SoulsAttack.upgradeLevel(stack);
